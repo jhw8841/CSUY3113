@@ -1,0 +1,2 @@
+C:\CSUY3113\lec\triangle\SDLProject\Debug\SDLProject.exe
+C:\CSUY3113\lec\triangle\SDLProject\Debug\SDLProject.pdb
