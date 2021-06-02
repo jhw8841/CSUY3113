@@ -100,7 +100,8 @@ void Update() {
 
     modelMatrix = glm::mat4(1.0f);
     modelTwoMatrix = glm::mat4(1.0f);
-
+    
+    //Comment this out when trying to work with the "reverse" section
     modelMatrix = glm::translate(modelMatrix, glm::vec3(-3.0, -player_y, 0.0f));
 
     //Trying to reverse movement
