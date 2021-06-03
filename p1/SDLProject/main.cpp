@@ -23,6 +23,7 @@ glm::mat4 viewMatrix, modelMatrix, modelTwoMatrix, projectionMatrix;
 float player_x = 0;
 float player_y = 0;
 float player_rotate = 0;
+float player_direction = 1.0;
 
 GLuint playerTextureID, playerTwoTextureID;
 
@@ -45,7 +46,7 @@ GLuint LoadTexture(const char* filePath) {
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("Textured!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Among Us Vs Megaman", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -68,7 +69,7 @@ void Initialize() {
 
     glUseProgram(program.programID);
 
-    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    glClearColor(0.529f, 0.808f, 0.922f, 1.0f); //sky blue background
     glEnable(GL_BLEND);
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -95,30 +96,22 @@ void Update() {
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    player_y += 1.0f * deltaTime;
+    player_y += player_direction * deltaTime;
     player_rotate += -90.0f * deltaTime;
+
+    //Check if the moving object has touched a specific point, if so, reverse direction (in this case it is -2.00 and 2.00)
+    if (player_y <= -2.00) {
+        player_direction = 1.0f;
+    }
+    else if (player_y >= 2.00) {
+        player_direction = -1.0f;
+    }
 
     modelMatrix = glm::mat4(1.0f);
     modelTwoMatrix = glm::mat4(1.0f);
     
-    //Comment this out when trying to work with the "reverse" section
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(-3.0, -player_y, 0.0f));
-
-    //Trying to reverse movement
-    /*
-    if (reverse == false) {
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(-3.0, -player_y, 0.0f));
-        if (lastTicks > 2) {
-            reverse = true;
-        }
-    }
-    else {
-        revVal = player_y;
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(-3.0f, player_y, 0.0f));
-        if (lastTicks > 2) {
-            reverse = false;
-        }
-    }*/
+    //translate to the left then continuously up/down by player_y
+    modelMatrix = glm::translate(modelMatrix, glm::vec3(-3.0, player_y, 0.0f));
 
     modelTwoMatrix = glm::translate(modelTwoMatrix, glm::vec3(3.0f, 0.0f, 0.0f));
     modelTwoMatrix = glm::rotate(modelTwoMatrix, glm::radians(player_rotate), glm::vec3(0.0f, 0.0f, 0.5f));
