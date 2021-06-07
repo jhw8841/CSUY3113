@@ -20,10 +20,14 @@ bool gameIsRunning = true;
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, modelTwoMatrix, projectionMatrix;
 
-float player_x = 0;
 float player_y = 0;
-float player_rotate = 0;
 float player_direction = 1.0;
+
+float enemy_x = 0;
+float enemy_scale = 1.0;
+float enemy_rotate = 0;
+float enemy_scale_size = 0;
+float enemy_direction = 1.0;
 
 GLuint playerTextureID, playerTwoTextureID;
 
@@ -97,14 +101,25 @@ void Update() {
     lastTicks = ticks;
 
     player_y += player_direction * deltaTime;
-    player_rotate += -90.0f * deltaTime;
+    enemy_x += enemy_direction * deltaTime;
+    enemy_scale += enemy_scale_size * deltaTime;
+    enemy_rotate += -130.0f * deltaTime;
 
-    //Check if the moving object has touched a specific point, if so, reverse direction (in this case it is -2.00 and 2.00)
+    //Check if the moving object has touched a specific point, if so, reverse direction
     if (player_y <= -2.00) {
         player_direction = 1.0f;
     }
     else if (player_y >= 2.00) {
         player_direction = -1.0f;
+    }
+
+    if (enemy_x <= -1.0) { //megaman direction & scaling
+        enemy_direction = 1.0f;
+        enemy_scale_size = -0.50f;
+    }
+    else if (enemy_x >= 2.0) {
+        enemy_direction = -1.0f;
+        enemy_scale_size = 0.50f;
     }
 
     modelMatrix = glm::mat4(1.0f);
@@ -113,9 +128,10 @@ void Update() {
     //translate to the left then continuously up/down by player_y
     modelMatrix = glm::translate(modelMatrix, glm::vec3(-3.0f, player_y, 0.0f));
 
-    modelTwoMatrix = glm::translate(modelTwoMatrix, glm::vec3(3.0f, 0.0f, 0.0f));
-    modelTwoMatrix = glm::rotate(modelTwoMatrix, glm::radians(player_rotate), glm::vec3(0.0f, 0.0f, 0.5f));
-    //modelTwoMatrix = glm::scale(modelTwoMatrix, glm::vec3(player_y, player_y, 1.0f)); //scales megaman up and down using player_y, 
+    //modelTwoMatrix = glm::translate(modelTwoMatrix, glm::vec3(3.0f, 0.0f, 0.0f)); //stationary megaman at position 3.0f
+    modelTwoMatrix = glm::translate(modelTwoMatrix, glm::vec3(enemy_x, 0.0f, 0.0f)); //moves megaman from right to left
+    modelTwoMatrix = glm::rotate(modelTwoMatrix, glm::radians(enemy_rotate), glm::vec3(0.0f, 0.0f, 0.5f)); //rotating megaman
+    modelTwoMatrix = glm::scale(modelTwoMatrix, glm::vec3(enemy_scale, enemy_scale, 1.0f)); //scales megaman up and down as he "attacks" sort of
 }
 
 void drawObject() {
