@@ -20,8 +20,12 @@ bool gameIsRunning = true;
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, somethingMatrix, projectionMatrix;
 
-float player_x = 0;
-float player_rotate = 0;
+//start at 0, 0, 0
+glm::vec3 player_position = glm::vec3(0, 0, 0);
+
+//Don't go anywhere (yet)
+glm::vec3 player_movement = glm::vec3(0, 0, 0);
+float player_speed = 1.0f;
 
 GLuint playerTextureID;
 
@@ -77,47 +81,71 @@ void Initialize() {
 }
 
 void ProcessInput() {
+    player_movement = glm::vec3(0);
+
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
+        switch (event.type) {
+        case SDL_QUIT:
+        case SDL_WINDOWEVENT_CLOSE:
             gameIsRunning = false;
+            break;
+
+        case SDL_KEYDOWN:
+            switch (event.key.keysym.sym) {
+            case SDLK_LEFT:
+                // Move the player left
+                break;
+
+            case SDLK_RIGHT:
+                // Move the player right
+                break;
+
+            case SDLK_SPACE:
+                // Some sort of action
+                break;
+            }
+            break; // SDL_KEYDOWN
         }
+    }
+    const Uint8* keys = SDL_GetKeyboardState(NULL);
+    if (keys[SDL_SCANCODE_LEFT]) {
+        player_movement.x = -1.0f;
+    }
+    else if (keys[SDL_SCANCODE_RIGHT]) {
+        player_movement.x = 1.0f;
+    }
+
+    if (keys[SDL_SCANCODE_DOWN]) {
+        player_movement.y = -1.0f;
+    }
+    else if (keys[SDL_SCANCODE_UP]) {
+        player_movement.y = 1.0f;
+    }
+
+    if (glm::length(player_movement) > 1.0f) {
+        player_movement = glm::normalize(player_movement);
     }
 }
 
 float lastTicks = 0.0f;
-
-void Update() { //Movement over time, translate, rotate, scale; ORDER MATTERS
+void Update() {
     float ticks = (float)SDL_GetTicks() / 1000.0f;
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    //Translation, moving stuff in a specific direction, (can be both positive or negative) x, y, or z movement
-    player_x += 1.0f * deltaTime;
-    player_rotate += -90.0f * deltaTime;
+    // Add (direction * units per second * elapsed time)
+    player_position += player_movement * player_speed * deltaTime;
     modelMatrix = glm::mat4(1.0f);
-    somethingMatrix = glm::mat4(1.0f);
-
-    somethingMatrix = glm::translate(somethingMatrix, glm::vec3(0.0f, player_x, 0.0f)); //translation over delta time
-    somethingMatrix = glm::rotate(somethingMatrix, glm::radians(player_rotate), glm::vec3(0.0f, 0.0f, 1.0f)); //rotation over delta time
-
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(player_x, 0.0f, 0.0f)); //translation over delta time
+    modelMatrix = glm::translate(modelMatrix, player_position);
+    
+    /*modelMatrix = glm::translate(modelMatrix, glm::vec3(player_x, 0.0f, 0.0f)); //translation over delta time
     modelMatrix = glm::rotate(modelMatrix, glm::radians(player_rotate), glm::vec3(0.0f, 0.0f, 1.0f)); //rotation over delta time
-    //modelMatrix = glm::scale(modelMatrix, glm::vec3(player_x, 1.0f, 1.0f)); //scaling over delta time
-
-    //Translation, moving stuff in a specific direction, (can be both positive or negative) x, y, or z movement
-    //Rotation, rotate about x axis, rotate about y axis, rotate about z axis (use z axis for 2d rotation clockwise and counter-clockwise)
-    //Scale, increase/decrease size of object, 1.0 is base (no size increase/decrease) use greater than 1.0 to increase size or less than 1.0 to decrease size
+    //modelMatrix = glm::scale(modelMatrix, glm::vec3(player_x, 1.0f, 1.0f)); //scaling over delta time */
 }
 
-void drawShroom() {
+void drawObject() {
     program.SetModelMatrix(modelMatrix);
-    glBindTexture(GL_TEXTURE_2D, playerTextureID);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-
-void drawShroomTwo() {
-    program.SetModelMatrix(somethingMatrix);
     glBindTexture(GL_TEXTURE_2D, playerTextureID);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
@@ -134,8 +162,7 @@ void Render() {
     glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
     glEnableVertexAttribArray(program.texCoordAttribute);
 
-    drawShroom();
-    drawShroomTwo();
+    drawObject();
 
     glDisableVertexAttribArray(program.positionAttribute);
     glDisableVertexAttribArray(program.texCoordAttribute);
