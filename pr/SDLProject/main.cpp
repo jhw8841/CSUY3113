@@ -17,16 +17,16 @@ bool gameIsRunning = true;
 ShaderProgram program;
 glm::mat4 viewMatrix, paddleOneMatrix, paddleTwoMatrix, ballMatrix, projectionMatrix;
 
-glm::vec3 player_one_position = glm::vec3(-4.5, 0, 0);
-glm::vec3 player_two_position = glm::vec3(4.5, 0, 0);
+glm::vec3 paddle_one_position = glm::vec3(-4.5, 0, 0);
+glm::vec3 paddle_two_position = glm::vec3(4.5, 0, 0);
 glm::vec3 ball_position = glm::vec3(0, 0, 0);
 
 glm::vec3 player_one_movement = glm::vec3(0, 0, 0);
 glm::vec3 player_two_movement = glm::vec3(0, 0, 0);
 glm::vec3 ball_movement = glm::vec3(0, 0, 0);
 
-float player_speed = 5.0f;
-float ball_speed = 2.0f;
+float player_speed = 3.0f;
+float ball_speed = 3.0f;
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
@@ -51,18 +51,17 @@ void Initialize() {
     program.SetProjectionMatrix(projectionMatrix);
     program.SetViewMatrix(viewMatrix);
     program.SetColor(0.8f, 0.8f, 0.8f, 1.0f);
+    ball_movement.x = 1;
+    ball_movement.y = 1;
 
     glUseProgram(program.programID);
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 }
 
-bool start = false;
 void ProcessInput() {
     player_one_movement = glm::vec3(0);
     player_two_movement = glm::vec3(0);
-    ball_movement.x = 1;
-    //ball_movement.y = 1;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -75,26 +74,26 @@ void ProcessInput() {
             case SDL_KEYDOWN:
                 switch (event.key.keysym.sym) {
                 case SDLK_SPACE:
-                    //ball_movement.x = 1;
-                    //ball_movement.y = 1;
                     break;
                 }
                 break; // SDL_KEYDOWN
             }
         }
     }
+
+    //Paddles have a radius height of 0.75. The edge is 3.75/-3.75. 3.75 - 0.75 = 3.0. Use 3.0 to prevent paddles from going out of the edge of map
     const Uint8* keys = SDL_GetKeyboardState(NULL);
-    if (keys[SDL_SCANCODE_W] && player_one_position.y <= 3.0) {
+    if (keys[SDL_SCANCODE_W] && paddle_one_position.y < 3.0) {
         player_one_movement.y = 1.0f;
     }
-    else if (keys[SDL_SCANCODE_S] && player_one_position.y >= -3.0) {
+    else if (keys[SDL_SCANCODE_S] && paddle_one_position.y > -3.0) {
         player_one_movement.y = -1.0f;
     }
 
-    if (keys[SDL_SCANCODE_UP] && player_two_position.y <= 3.0) {
+    if (keys[SDL_SCANCODE_UP] && paddle_two_position.y < 3.0) {
         player_two_movement.y = 1.0f;
     }
-    else if (keys[SDL_SCANCODE_DOWN] && player_two_position.y >= -3.0) {
+    else if (keys[SDL_SCANCODE_DOWN] && paddle_two_position.y > -3.0) {
         player_two_movement.y = -1.0f;
     }
 
@@ -106,8 +105,46 @@ void ProcessInput() {
     }
 }
 
-bool detectBallCollision() {
-    return true;
+void detectPaddleCollision() {
+    float paddleWidth = 0.10, paddleHeight = 0.75;
+    float ballWidth = 0.15, ballHeight = 0.15;
+
+    float paddleTwoXDiff = fabs(paddle_two_position.x - ball_position.x);
+    float paddleTwoYDiff = fabs(paddle_two_position.y - ball_position.y);
+
+    float paddleOneXDiff = fabs(paddle_one_position.x - ball_position.x);
+    float paddleOneYDiff = fabs(paddle_one_position.y - ball_position.y);
+
+    float paddleTwoXDistance = paddleTwoXDiff - (paddleWidth + ballWidth);
+    float paddleTwoYDistance = paddleTwoYDiff - (paddleHeight + ballHeight);
+
+    float paddleOneXDistance = paddleOneXDiff - (paddleWidth + ballWidth);
+    float paddleOneYDistance = paddleOneYDiff - (paddleHeight + ballHeight);
+
+    //Sometimes the ball gets stuck inside of the paddle (same with wall)
+    if ((paddleOneXDistance < 0.025 && paddleOneYDistance < 0.025) || (paddleTwoXDistance < 0.025 && paddleTwoYDistance < 0.025)) {
+        if (paddleOneXDistance < -0.025 || paddleTwoXDistance < -0.025) {
+            ball_movement.x *= -1.0;
+            ball_movement.y *= -1.0;
+        }
+        else {
+            ball_movement.x *= -1.0; //if the ball collides with a paddle, bounce it back in the x direction
+        }
+    }
+}
+
+//For some reason, sometimes the ball gets stuck inside of the wall and spazzes out back and forth in the wall and then bounces back
+void detectWallCollision() { //If the ball hits the Y wall, bounce it back in the other y direction
+    if (ball_position.y > 3.5 || ball_position.y < -3.5) {
+        ball_movement.y *= -1.0;
+    }
+}
+
+void outOfBounds() { //When ball goes out of bounds reset it to 0, 0 position
+    if (ball_position.x < -5.15 || ball_position.x > 5.15) {
+        ball_position.x = 0.0;
+        ball_position.y = 0.0;
+    }
 }
 
 float lastTicks = 0.0f;
@@ -117,22 +154,25 @@ void Update() {
     lastTicks = ticks;
 
     //Test collision Detection
-        
+    detectPaddleCollision();
+    detectWallCollision();
     //End collision detection testing
 
     //Update position
-    player_one_position += player_one_movement * player_speed * deltaTime;
-    player_two_position += player_two_movement * player_speed * deltaTime;
+    paddle_one_position += player_one_movement * player_speed * deltaTime;
+    paddle_two_position += player_two_movement * player_speed * deltaTime;
     ball_position += ball_movement * ball_speed * deltaTime;
 
     paddleOneMatrix = glm::mat4(1.0f);
-    paddleOneMatrix = glm::translate(paddleOneMatrix, player_one_position);
+    paddleOneMatrix = glm::translate(paddleOneMatrix, paddle_one_position);
 
     paddleTwoMatrix = glm::mat4(1.0f);
-    paddleTwoMatrix = glm::translate(paddleTwoMatrix, player_two_position);
+    paddleTwoMatrix = glm::translate(paddleTwoMatrix, paddle_two_position);
 
     ballMatrix = glm::mat4(1.0f);
     ballMatrix = glm::translate(ballMatrix, ball_position);
+
+    outOfBounds();
 }
 
 void drawPaddleOne() {
