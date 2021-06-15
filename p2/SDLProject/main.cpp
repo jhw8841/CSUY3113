@@ -31,7 +31,7 @@ float ball_speed = 3.0f;
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("Speed Pong!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Pong!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -113,7 +113,7 @@ void ProcessInput() {
     }
 }
 
-void detectPaddleCollision() {
+void detectPaddleCollision() { //During collisions with wall/paddle, we bring the ball back the distance it penetrated + 0.0001 to make sure it's not inside paddle/wall
     float paddleWidth = 0.10f, paddleHeight = 0.75f;
     float ballWidth = 0.15f, ballHeight = 0.15f;
 
@@ -135,7 +135,7 @@ void detectPaddleCollision() {
             if (ball_position.y > paddle_one_position.y) { //if the ball did hit the side, which side did it hit
                 ball_position.y += diagonal + 0.0001f;
             }
-            else if(ball_position.y <= paddle_one_position.y) {
+            else if (ball_position.y <= paddle_one_position.y) {
                 ball_position.y -= diagonal - 0.0001f;
             }
             ball_position.x += diagonal + 0.0001f;
@@ -189,12 +189,12 @@ void outOfBounds() { //When ball goes out of bounds/hits left or right wall, som
 }
 
 float lastTicks = 0.0f;
-void Update() { 
+void Update() {
     float ticks = (float)SDL_GetTicks() / 1000.0f;
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    if(gameEnded == false) {
+    if (gameEnded == false) {
         //Test collision Detection
         detectPaddleCollision();
         detectWallCollision();
@@ -235,7 +235,7 @@ void Render() {
 
     glEnableVertexAttribArray(program.positionAttribute);
 
-    float vertices[] = { -0.10, -0.75, 0.10, -0.75, 0.10, 0.75, -0.10, -0.75, 0.10, 0.75, -0.10, 0.75};
+    float vertices[] = { -0.10, -0.75, 0.10, -0.75, 0.10, 0.75, -0.10, -0.75, 0.10, 0.75, -0.10, 0.75 };
     glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
     drawPaddleOne();
     drawPaddleTwo();
