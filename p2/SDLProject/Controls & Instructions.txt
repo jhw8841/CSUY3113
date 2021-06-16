@@ -27,7 +27,7 @@ ignore this whole thing since ball right corner needs to hit left
 paddle left corner and vice versa for the right paddle except ball left corner 
 needs to hit right paddle right corner.
 
-Side/Front collision detection may not be the same for different pcs, during my testing,
+Side/Front collision detection may not work correctly for different pcs, during my testing,
 at least, there were no issues with detecting side/front paddle hits. This implementation
 relies on the ball not penetrating too far into the paddle to be considered as
 hitting the front versus hitting the side of a paddle. 
