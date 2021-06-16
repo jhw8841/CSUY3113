@@ -19,7 +19,10 @@ variables within case SDLK_SPACE (pressing spacebar)
 
 If the paddle reaches the ball too late, it'll bounce into the left/right wall anyway
 (hitting the ball with the ending edge/portion of the paddle, 
-example: left paddle hits ball with the top/bottom left corner of left paddle).
+example: left paddle hits ball with the top/bottom left corner of left paddle
+will cause ball to move into left wall, and thus lose the game anyway even
+though they hit it, cause the ball was on the very left edge corner of the paddle
+and player was too late).
 
 Side/Front collision detection may not be the same for different pcs, during my testing,
 at least, there were no issues with detecting side/front paddle hits. This implementation
