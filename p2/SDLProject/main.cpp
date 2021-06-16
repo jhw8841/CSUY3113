@@ -52,8 +52,6 @@ void Initialize() {
     program.SetProjectionMatrix(projectionMatrix);
     program.SetViewMatrix(viewMatrix);
     program.SetColor(0.8f, 0.8f, 0.8f, 1.0f);
-    ball_movement.x = 0.0f;
-    ball_movement.y = 0.0f;
 
     glUseProgram(program.programID);
 
