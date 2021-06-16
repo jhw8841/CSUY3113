@@ -1,0 +1,28 @@
+Simple Pong Game Controls:
+Left Paddle:
+W to move up
+S to move down
+
+Right Paddle:
+Up arrow key to move up
+Down arrow key to move down
+
+Game Start:
+Spacebar to start the game, you'll be able to move the paddles initially,
+but pressing Spacebar to start the game will reset paddle positions.
+If game ends/pauses from scoring, press Spacebar to reset the pong and paddles
+and start again. Ball will always move towards the bottom right corner at start
+
+Additional Notes:
+If the paddle reaches the ball too late, it'll bounce into the left/right wall anyway
+(hitting the ball with the ending edge/portion of the paddle, 
+example: left paddle hits ball with the top/bottom left corner of left paddle).
+
+Side/Front collision detection may not be the same for different pcs, during my testing,
+at least, there were no issues with detecting side/front paddle hits. This implementation
+relies on the ball not penetrating too far into the paddle to be considered as
+hitting the front versus hitting the side of a paddle. 
+
+Making the ball's speed slower (RECOMMENDED)
+or increasing penetration detection amount (default is 0.005, NOT RECOMMENDED, changes detection of front and side of the paddle)
+will fix potential incorrect side/front bouncing issues.
