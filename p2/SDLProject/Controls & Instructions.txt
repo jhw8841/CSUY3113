@@ -14,6 +14,9 @@ If game ends/pauses from scoring, press Spacebar to reset the pong and paddles
 and start again. Ball will always move towards the bottom right corner at start
 
 Additional Notes:
+If you want to change up where the ball goes, you can change the number on the ball_movement
+variables within case SDLK_SPACE (pressing spacebar)
+
 If the paddle reaches the ball too late, it'll bounce into the left/right wall anyway
 (hitting the ball with the ending edge/portion of the paddle, 
 example: left paddle hits ball with the top/bottom left corner of left paddle).
