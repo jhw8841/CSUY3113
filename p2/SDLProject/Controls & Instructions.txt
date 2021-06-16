@@ -22,9 +22,9 @@ If the paddle reaches the ball too late, it'll bounce into the left/right wall a
 example: left paddle hits ball with the top/bottom left corner of left paddle
 will cause ball to move into left wall, and thus lose the game anyway even
 though they hit it, cause the ball was on the very left edge corner of the paddle
-and player was too late. actually really hard to do since ball right corner needs to hit left
+and player was too late. Actually almost impossible to do since ball right corner needs to hit left
 paddle left corner and vice versa for the right paddle except ball left corner 
-needs to hit right paddle right corner).
+needs to hit right paddle right corner. And probably better to just ignore this whole thing.
 
 Side/Front collision detection may not be the same for different pcs, during my testing,
 at least, there were no issues with detecting side/front paddle hits. This implementation
