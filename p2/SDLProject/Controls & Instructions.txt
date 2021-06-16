@@ -25,7 +25,6 @@ Side/Front collision detection may not be the same for different pcs, during my 
 at least, there were no issues with detecting side/front paddle hits. This implementation
 relies on the ball not penetrating too far into the paddle to be considered as
 hitting the front versus hitting the side of a paddle. 
-
 Making the ball's speed slower (RECOMMENDED)
 or increasing penetration detection amount (default is 0.005, NOT RECOMMENDED, changes detection of front and side of the paddle)
 will fix potential incorrect side/front bouncing issues.
