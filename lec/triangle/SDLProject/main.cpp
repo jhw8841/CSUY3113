@@ -14,74 +14,128 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include "Entity.h"
+
+#define PLATFORM_COUNT 5
+
+struct GameState {
+    Entity* player;
+    Entity* platforms;
+};
+
+GameState state;
+
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
 
 ShaderProgram program;
-glm::mat4 viewMatrix, modelMatrix, somethingMatrix, projectionMatrix;
-
-//start at 0, 0, 0
-glm::vec3 player_position = glm::vec3(0, 0, 0);
-
-//Don't go anywhere (yet)
-glm::vec3 player_movement = glm::vec3(0, 0, 0);
-float player_speed = 1.0f;
-
-GLuint playerTextureID;
+glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
 
 GLuint LoadTexture(const char* filePath) {
     int w, h, n;
     unsigned char* image = stbi_load(filePath, &w, &h, &n, STBI_rgb_alpha);
+
     if (image == NULL) {
         std::cout << "Unable to load image. Make sure the path is correct\n";
         assert(false);
     }
+
     GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     stbi_image_free(image);
     return textureID;
 }
+
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
     displayWindow = SDL_CreateWindow("Textured!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
-    
+
 #ifdef _WINDOWS
     glewInit();
 #endif
-    
+
     glViewport(0, 0, 640, 480);
-    
+
     program.Load("shaders/vertex_textured.glsl", "shaders/fragment_textured.glsl");
-    
+
     viewMatrix = glm::mat4(1.0f);
     modelMatrix = glm::mat4(1.0f);
-    somethingMatrix = glm::mat4(1.0f);
     projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
-    
+
     program.SetProjectionMatrix(projectionMatrix);
     program.SetViewMatrix(viewMatrix);
-    //program.SetColor(1.0f, 0.0f, 1.0f, 1.0f);
-    
+
     glUseProgram(program.programID);
-    
+
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glEnable(GL_BLEND);
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    playerTextureID = LoadTexture("shroom.png");
 
+    // Initialize Game Objects
+
+    // Initialize Player
+    state.player = new Entity();
+    state.player->position = glm::vec3(0);
+    state.player->movement = glm::vec3(0);
+    state.player->acceleration = glm::vec3(0, -9.81f, 0);
+    state.player->speed = 1.5f;
+    state.player->textureID = LoadTexture("george_0.png");
+
+    state.player->animRight = new int[4]{ 3, 7, 11, 15 };
+    state.player->animLeft = new int[4]{ 1, 5, 9, 13 };
+    state.player->animUp = new int[4]{ 2, 6, 10, 14 };
+    state.player->animDown = new int[4]{ 0, 4, 8, 12 };
+
+    state.player->animIndices = state.player->animRight;
+    state.player->animFrames = 4;
+    state.player->animIndex = 0;
+    state.player->animTime = 0;
+    state.player->animCols = 4;
+    state.player->animRows = 4;
+
+    state.player->height = 0.8f;
+    state.player->width = 0.15f;
+
+    state.player->jumpPower = 8.0f;
+
+    state.platforms = new Entity[PLATFORM_COUNT];
+
+    GLuint platformTextureID = LoadTexture("platformPack_tile001.png");
+    state.platforms[0].textureID = platformTextureID;
+    state.platforms[0].position = glm::vec3(-1, -3.25f, 0);
+
+    state.platforms[1].textureID = platformTextureID;
+    state.platforms[1].position = glm::vec3(0, -3.25f, 0);
+    state.platforms[1].isActive = false;
+
+    state.platforms[2].textureID = platformTextureID;
+    state.platforms[2].position = glm::vec3(1, -3.25f, 0);
+
+    state.platforms[3].textureID = platformTextureID;
+    state.platforms[3].position = glm::vec3(-3, -3.25f, 0);
+
+    state.platforms[4].textureID = platformTextureID;
+    state.platforms[4].position = glm::vec3(1.5f, -2.25f, 0);
+
+    for (int i = 0; i < PLATFORM_COUNT; i++) {
+        state.platforms[i].Update(0, NULL, 0);
+    }
 }
 
 void ProcessInput() {
-    player_movement = glm::vec3(0);
+
+    state.player->movement = glm::vec3(0);
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -102,74 +156,70 @@ void ProcessInput() {
                 break;
 
             case SDLK_SPACE:
-                // Some sort of action
+                if (state.player->collidedBottom == true) {
+                    state.player->jump = true;
+                }
                 break;
             }
             break; // SDL_KEYDOWN
         }
     }
+
     const Uint8* keys = SDL_GetKeyboardState(NULL);
+
     if (keys[SDL_SCANCODE_LEFT]) {
-        player_movement.x = -1.0f;
+        state.player->movement.x = -1.0f;
+        state.player->animIndices = state.player->animLeft;
     }
     else if (keys[SDL_SCANCODE_RIGHT]) {
-        player_movement.x = 1.0f;
+        state.player->movement.x = 1.0f;
+        state.player->animIndices = state.player->animRight;
     }
 
-    if (keys[SDL_SCANCODE_DOWN]) {
-        player_movement.y = -1.0f;
-    }
-    else if (keys[SDL_SCANCODE_UP]) {
-        player_movement.y = 1.0f;
+
+    if (glm::length(state.player->movement) > 1.0f) {
+        state.player->movement = glm::normalize(state.player->movement);
     }
 
-    if (glm::length(player_movement) > 1.0f) {
-        player_movement = glm::normalize(player_movement);
-    }
 }
 
-float lastTicks = 0.0f;
+#define FIXED_TIMESTEP 0.0166666f
+float lastTicks = 0;
+float accumulator = 0.0f;
+
 void Update() {
     float ticks = (float)SDL_GetTicks() / 1000.0f;
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    // Add (direction * units per second * elapsed time)
-    player_position += player_movement * player_speed * deltaTime;
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, player_position);
-    
-    /*modelMatrix = glm::translate(modelMatrix, glm::vec3(player_x, 0.0f, 0.0f)); //translation over delta time
-    modelMatrix = glm::rotate(modelMatrix, glm::radians(player_rotate), glm::vec3(0.0f, 0.0f, 1.0f)); //rotation over delta time
-    //modelMatrix = glm::scale(modelMatrix, glm::vec3(player_x, 1.0f, 1.0f)); //scaling over delta time */
-}
+    deltaTime += accumulator;
+    if (deltaTime < FIXED_TIMESTEP) {
+        accumulator = deltaTime;
+        return;
+    }
 
-void drawObject() {
-    program.SetModelMatrix(modelMatrix);
-    glBindTexture(GL_TEXTURE_2D, playerTextureID);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    while (deltaTime >= FIXED_TIMESTEP) {
+        // Update. Notice it's FIXED_TIMESTEP. Not deltaTime
+        state.player->Update(FIXED_TIMESTEP, state.platforms, PLATFORM_COUNT);
+
+        deltaTime -= FIXED_TIMESTEP;
+    }
+
+    accumulator = deltaTime;
 }
 
 void Render() {
-    float vertices[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
-    float texCoords[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
-
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
-    glEnableVertexAttribArray(program.positionAttribute);
+    for (int i = 0; i < PLATFORM_COUNT; i++) {
+        state.platforms[i].Render(&program);
+    }
 
-    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
-    glEnableVertexAttribArray(program.texCoordAttribute);
-
-    drawObject();
-
-    glDisableVertexAttribArray(program.positionAttribute);
-    glDisableVertexAttribArray(program.texCoordAttribute);
+    state.player->Render(&program);
 
     SDL_GL_SwapWindow(displayWindow);
-
 }
+
 
 void Shutdown() {
     SDL_Quit();
@@ -177,13 +227,13 @@ void Shutdown() {
 
 int main(int argc, char* argv[]) {
     Initialize();
-    
+
     while (gameIsRunning) {
         ProcessInput();
         Update();
         Render();
     }
-    
+
     Shutdown();
     return 0;
 }

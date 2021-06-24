@@ -11,27 +11,50 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#include "Entity.h"
+
+struct GameState {
+    Entity* player;
+    Entity* platform;
+    Entity* wall;
+};
+
+GameState state;
+
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
-bool gameEnded = false;
 
 ShaderProgram program;
-glm::mat4 viewMatrix, paddleOneMatrix, paddleTwoMatrix, ballMatrix, projectionMatrix;
+glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
 
-glm::vec3 paddle_one_position = glm::vec3(-4.5, 0, 0);
-glm::vec3 paddle_two_position = glm::vec3(4.5, 0, 0);
-glm::vec3 ball_position = glm::vec3(0, 0, 0);
+GLuint LoadTexture(const char* filePath) {
+    int w, h, n;
+    unsigned char* image = stbi_load(filePath, &w, &h, &n, STBI_rgb_alpha);
 
-glm::vec3 player_one_movement = glm::vec3(0, 0, 0);
-glm::vec3 player_two_movement = glm::vec3(0, 0, 0);
-glm::vec3 ball_movement = glm::vec3(0, 0, 0);
+    if (image == NULL) {
+        std::cout << "Unable to load image. Make sure the path is correct\n";
+        assert(false);
+    }
 
-float player_speed = 3.0f;
-float ball_speed = 3.0f;
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    stbi_image_free(image);
+    return textureID;
+}
+
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("Speed Pong!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Textured!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -41,28 +64,47 @@ void Initialize() {
 
     glViewport(0, 0, 640, 480);
 
-    program.Load("shaders/vertex.glsl", "shaders/fragment.glsl");
+    program.Load("shaders/vertex_textured.glsl", "shaders/fragment_textured.glsl");
 
     viewMatrix = glm::mat4(1.0f);
-    paddleOneMatrix = glm::mat4(1.0f);
-    paddleTwoMatrix = glm::mat4(1.0f);
-    ballMatrix = glm::mat4(1.0f);
+    modelMatrix = glm::mat4(1.0f);
     projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
     program.SetProjectionMatrix(projectionMatrix);
     program.SetViewMatrix(viewMatrix);
-    program.SetColor(0.8f, 0.8f, 0.8f, 1.0f);
-    ball_movement.x = 0.0f;
-    ball_movement.y = 0.0f;
 
     glUseProgram(program.programID);
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    glEnable(GL_BLEND);
+
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+    // Initialize Game Objects
+    state.player = new Entity();
+    state.player->position = glm::vec3(0, 3.0f, 0);
+    state.player->movement = glm::vec3(0, 0, 0);
+    state.player->speed = 1.0f;
+    state.player->acceleration = glm::vec3(0, -0.0005f, 0);
+    state.player->textureID = LoadTexture("playerShip3_orange.png"); //Make this fire
+
+    state.platform = new Entity();
+    GLuint platformTextureID = LoadTexture("platformPack_tile017.png"); //Water tile to land in
+    state.platform->textureID = platformTextureID;
+    state.platform->position = glm::vec3(0, -3.25f, 0);
+    state.platform->Update(0);
+
+    state.wall = new Entity();
+    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Make these explosives
+    state.wall->textureID = wallTextureID;
+    state.wall->position = glm::vec3(1, -3.25f, 0);
+    state.wall->Update(0);
 }
 
 void ProcessInput() {
-    player_one_movement = glm::vec3(0);
-    player_two_movement = glm::vec3(0);
+
+    state.player->movement = glm::vec3(0);
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -71,183 +113,69 @@ void ProcessInput() {
         case SDL_WINDOWEVENT_CLOSE:
             gameIsRunning = false;
             break;
+
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
             case SDLK_SPACE:
-                gameEnded = false;
-                paddle_one_position.y = 0.0f;
-                paddle_two_position.y = 0.0f;
-                ball_position.x = 0.0f;
-                ball_position.y = 0.0f;
-                ball_movement.x = 1.0f;
-                ball_movement.y = -1.0f;
+                // Some sort of action
                 break;
             }
             break; // SDL_KEYDOWN
         }
     }
 
-    if (gameEnded == false) {
-        //Paddles have a radius height of 0.75. The edge is 3.75/-3.75. 3.75 - 0.75 = 3.0. Use 3.0 to prevent paddles from going out of the edge of map
-        const Uint8* keys = SDL_GetKeyboardState(NULL);
-        if (keys[SDL_SCANCODE_W] && paddle_one_position.y < 3.0f) {
-            player_one_movement.y = 1.0f;
-        }
-        else if (keys[SDL_SCANCODE_S] && paddle_one_position.y > -3.0f) {
-            player_one_movement.y = -1.0f;
-        }
+    const Uint8* keys = SDL_GetKeyboardState(NULL);
 
-        if (keys[SDL_SCANCODE_UP] && paddle_two_position.y < 3.0f) {
-            player_two_movement.y = 1.0f;
-        }
-        else if (keys[SDL_SCANCODE_DOWN] && paddle_two_position.y > -3.0f) {
-            player_two_movement.y = -1.0f;
-        }
-
-        if (glm::length(player_one_movement) > 1.0f) {
-            player_one_movement = glm::normalize(player_one_movement);
-        }
-        if (glm::length(player_two_movement) > 1.0f) {
-            player_two_movement = glm::normalize(player_two_movement);
-        }
+    if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -8.0f) {
+        state.player->acceleration.x += -0.001f;
+        state.player->animIndices = state.player->animLeft;
     }
+    else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 8.0f) {
+        state.player->acceleration.x += 0.001f;
+        state.player->animIndices = state.player->animRight;
+    }
+
+    if (glm::length(state.player->movement) > 1.0f) {
+        state.player->movement = glm::normalize(state.player->movement);
+    }
+
 }
 
-void detectPaddleCollision() {
-    float paddleWidth = 0.10f, paddleHeight = 0.75f;
-    float ballWidth = 0.15f, ballHeight = 0.15f;
+#define FIXED_TIMESTEP 0.0166666f
+float lastTicks = 0;
+float accumulator = 0.0f;
 
-    float paddleTwoXDiff = fabs(paddle_two_position.x - ball_position.x);
-    float paddleTwoYDiff = fabs(paddle_two_position.y - ball_position.y);
-
-    float paddleOneXDiff = fabs(paddle_one_position.x - ball_position.x);
-    float paddleOneYDiff = fabs(paddle_one_position.y - ball_position.y);
-
-    float paddleTwoXDistance = paddleTwoXDiff - (paddleWidth + ballWidth);
-    float paddleTwoYDistance = paddleTwoYDiff - (paddleHeight + ballHeight);
-
-    float paddleOneXDistance = paddleOneXDiff - (paddleWidth + ballWidth);
-    float paddleOneYDistance = paddleOneYDiff - (paddleHeight + ballHeight);
-
-    if (paddleOneXDistance < 0.0f && paddleOneYDistance < 0.0f) { //Ball is hitting left paddle
-        if (paddleOneXDistance < -0.005f) {//Ball is hitting the side
-            float diagonal = ((fabs(paddleOneXDistance) * fabs(paddleOneXDistance)) + (fabs(paddleOneYDistance) * fabs(paddleOneYDistance))); //Not doing sqrt looks more natural
-            if (ball_position.y > paddle_one_position.y) { //if the ball did hit the side, which side did it hit
-                ball_position.y += diagonal + 0.0001f;
-            }
-            else if(ball_position.y <= paddle_one_position.y) {
-                ball_position.y -= diagonal - 0.0001f;
-            }
-            ball_position.x += diagonal + 0.0001f;
-            ball_movement.x *= -1.0f;
-            ball_movement.y *= -1.0f;
-        }
-        else { //Ball is hitting the front
-            ball_position.x += (fabs(paddleOneXDistance) + 0.0001f);
-            ball_movement.x *= -1.0f; //if the ball collides with a paddle, bounce it back in the x direction
-        }
-    }
-    else if (paddleTwoXDistance < 0.0f && paddleTwoYDistance < 0.0f) { //Ball is hitting right paddle
-        if (paddleTwoXDistance < -0.005f) { //Ball is hitting the side
-            float diagonal = ((fabs(paddleTwoXDistance) * fabs(paddleTwoXDistance)) + (fabs(paddleTwoYDistance) * fabs(paddleTwoYDistance)));
-            if (ball_position.y > paddle_two_position.y) { //which side is getting hit
-                ball_position.y += diagonal + 0.0001f;
-            }
-            else if (ball_position.y <= paddle_two_position.y) {
-                ball_position.y -= diagonal - 0.0001f;
-            }
-            ball_position.x -= diagonal - 0.0001f;
-            ball_movement.x *= -1.0f;
-            ball_movement.y *= -1.0f;
-        }
-        else { //Ball is hitting the front
-            ball_position.x -= (fabs(paddleTwoXDistance) + 0.0001f);
-            ball_movement.x *= -1.0f;
-        }
-    }
-}
-
-void detectWallCollision() { //If the ball hits the Y wall, bounce it back in the other y direction
-    float ballPen;
-    if (ball_position.y >= 3.6f) {
-        ballPen = ball_position.y - 3.6f;
-        ball_position.y -= (fabs(ballPen) + 0.0001f);
-        ball_movement.y *= -1.0f;
-    }
-    else if (ball_position.y <= -3.6f) {
-        ballPen = ball_position.y + 3.6f;
-        ball_position.y += (fabs(ballPen) + 0.0001f);
-        ball_movement.y *= -1.0f;
-    }
-}
-
-void outOfBounds() { //When ball goes out of bounds/hits left or right wall, someone won, stop game
-    if (ball_position.x <= -4.85f || ball_position.x >= 4.85f) {
-        gameEnded = true;
-        ball_movement = glm::vec3(0);
-    }
-}
-
-float lastTicks = 0.0f;
-void Update() { 
+void Update() {
     float ticks = (float)SDL_GetTicks() / 1000.0f;
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    if(gameEnded == false) {
-        //Test collision Detection
-        detectPaddleCollision();
-        detectWallCollision();
-
-        //Update position
-        paddle_one_position += player_one_movement * player_speed * deltaTime;
-        paddle_two_position += player_two_movement * player_speed * deltaTime;
-        ball_position += ball_movement * ball_speed * deltaTime;
-
-        paddleOneMatrix = glm::mat4(1.0f);
-        paddleOneMatrix = glm::translate(paddleOneMatrix, paddle_one_position);
-
-        paddleTwoMatrix = glm::mat4(1.0f);
-        paddleTwoMatrix = glm::translate(paddleTwoMatrix, paddle_two_position);
-
-        ballMatrix = glm::mat4(1.0f);
-        ballMatrix = glm::translate(ballMatrix, ball_position);
-
-        outOfBounds();
+    deltaTime += accumulator;
+    if (deltaTime < FIXED_TIMESTEP) {
+        accumulator = deltaTime;
+        return;
     }
+
+    while (deltaTime >= FIXED_TIMESTEP) {
+        state.player->Update(FIXED_TIMESTEP);
+
+        deltaTime -= FIXED_TIMESTEP;
+    }
+
+    state.player->Update(deltaTime);
 }
 
-void drawPaddleOne() {
-    program.SetModelMatrix(paddleOneMatrix);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-void drawPaddleTwo() {
-    program.SetModelMatrix(paddleTwoMatrix);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-void drawBall() {
-    program.SetModelMatrix(ballMatrix);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
 
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glEnableVertexAttribArray(program.positionAttribute);
-
-    float vertices[] = { -0.10, -0.75, 0.10, -0.75, 0.10, 0.75, -0.10, -0.75, 0.10, 0.75, -0.10, 0.75};
-    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
-    drawPaddleOne();
-    drawPaddleTwo();
-
-    float ballVertices[] = { -0.15, -0.15, 0.15, -0.15, 0.15, 0.15, -0.15, -0.15, 0.15, 0.15, -0.15, 0.15 };
-    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, ballVertices);
-    drawBall();
-
-    glDisableVertexAttribArray(program.positionAttribute);
+    state.platform->Render(&program);
+    state.wall->Render(&program);
+    state.player->Render(&program);
 
     SDL_GL_SwapWindow(displayWindow);
 }
+
 
 void Shutdown() {
     SDL_Quit();
