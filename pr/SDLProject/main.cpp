@@ -30,6 +30,14 @@ bool gameIsRunning = true;
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
 
+//Vertices Coordinates
+float playerVertices[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
+float playerTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float platVertices[] = { -2.0, -0.25, 2.0, -0.25, 2.0, 0.25, -2.0, -0.25, 2.0, 0.25, -2.0, 0.25 };
+float platTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float wallVertices[] = { -5.0, -0.5, 5.0, -0.5, 5.0, 0.5, -5.0, -0.5, 5.0, 0.5, -5.0, 0.5 };
+float wallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+
 GLuint LoadTexture(const char* filePath) {
     int w, h, n;
     unsigned char* image = stbi_load(filePath, &w, &h, &n, STBI_rgb_alpha);
@@ -80,25 +88,29 @@ void Initialize() {
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-
     // Initialize Game Objects
     state.player = new Entity();
     state.player->position = glm::vec3(0, 3.0f, 0);
-    state.player->movement = glm::vec3(0, 0, 0);
     state.player->speed = 1.0f;
     state.player->acceleration = glm::vec3(0, -0.0005f, 0);
     state.player->textureID = LoadTexture("playerShip3_orange.png"); //Make this fire
+    state.player->entityVertices = playerVertices;
+    state.player->entityTexCoords = playerTexCoord;
 
     state.platform = new Entity();
     GLuint platformTextureID = LoadTexture("platformPack_tile017.png"); //Water tile to land in
     state.platform->textureID = platformTextureID;
-    state.platform->position = glm::vec3(0, -3.25f, 0);
+    state.platform->position = glm::vec3(0, -3.0f, 0);
+    state.platform->entityVertices = platVertices;
+    state.platform->entityTexCoords = platTexCoord;
     state.platform->Update(0);
 
     state.wall = new Entity();
     GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Make these explosives
     state.wall->textureID = wallTextureID;
-    state.wall->position = glm::vec3(1, -3.25f, 0);
+    state.wall->position = glm::vec3(0, -3.25f, 0);
+    state.wall->entityVertices = wallVertices;
+    state.wall->entityTexCoords = wallTexCoord;
     state.wall->Update(0);
 }
 
@@ -126,11 +138,11 @@ void ProcessInput() {
 
     const Uint8* keys = SDL_GetKeyboardState(NULL);
 
-    if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -8.0f) {
+    if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -7.0f) {
         state.player->acceleration.x += -0.001f;
         state.player->animIndices = state.player->animLeft;
     }
-    else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 8.0f) {
+    else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 7.0f) {
         state.player->acceleration.x += 0.001f;
         state.player->animIndices = state.player->animRight;
     }
@@ -165,12 +177,11 @@ void Update() {
     state.player->Update(deltaTime);
 }
 
-
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    state.platform->Render(&program);
     state.wall->Render(&program);
+    state.platform->Render(&program);
     state.player->Render(&program);
 
     SDL_GL_SwapWindow(displayWindow);

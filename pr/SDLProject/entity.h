@@ -28,6 +28,9 @@ public:
 
     glm::mat4 modelMatrix;
 
+    float* entityVertices;
+    float* entityTexCoords;
+
     int* animRight = NULL;
     int* animLeft = NULL;
     int* animUp = NULL;
