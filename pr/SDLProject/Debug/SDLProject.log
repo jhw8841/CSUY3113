@@ -1,2 +1,5 @@
 ﻿  main.cpp
+C:\CSUY3113\pr\SDLProject\main.cpp(38,93): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\CSUY3113\pr\SDLProject\main.cpp(40,97): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\CSUY3113\pr\SDLProject\main.cpp(203,23): warning C4018: '<': signed/unsigned mismatch
   SDLProject.vcxproj -> C:\CSUY3113\pr\SDLProject\Debug\SDLProject.exe

@@ -11,16 +11,19 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
 
+enum EntityType { PLAYER, PLATFORM, WALL};
+
 class Entity {
 public:
+    EntityType entityType;
+
     glm::vec3 position;
     glm::vec3 movement;
     glm::vec3 acceleration;
-    glm::vec3 gravity;
     glm::vec3 velocity;
 
-    float width = 1;
-    float height = 1;
+    double width = 1;
+    double height = 1;
 
     float speed;
 
@@ -45,7 +48,9 @@ public:
 
     Entity();
 
-    void Update(float deltaTime);
+    bool CheckCollision(Entity* other);
+
+    void Update(float deltaTime, bool* gameOver, Entity* object);
     void Render(ShaderProgram* program);
     void DrawSpriteFromTextureAtlas(ShaderProgram* program, GLuint textureID, int index);
 };

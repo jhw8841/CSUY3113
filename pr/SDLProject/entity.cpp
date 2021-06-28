@@ -6,13 +6,23 @@ Entity::Entity()
     movement = glm::vec3(0);
     acceleration = glm::vec3(0);
     velocity = glm::vec3(0);
-    gravity = glm::vec3(0);
     speed = 0;
 
     modelMatrix = glm::mat4(1.0f);
 }
 
-void Entity::Update(float deltaTime)
+bool Entity::CheckCollision(Entity* other) {
+    double xdist = fabs(position.x - other->position.x) - ((width + other->width) / 2.0);
+    double ydist = fabs(position.y - other->position.y) - ((height + other->height) / 2.0);
+
+    if (xdist < 0 && ydist < 0) {
+        return true;
+    }
+
+    return false;
+}
+
+void Entity::Update(float deltaTime, bool* gameOver, Entity* object)
 {
     if (animIndices != NULL) {
         if (glm::length(movement) != 0) {
@@ -35,12 +45,19 @@ void Entity::Update(float deltaTime)
 
     velocity.x = movement.x * speed;
     velocity += acceleration * deltaTime;
-    if (acceleration.x > 0) {
-        acceleration.x -= 0.0007;
+
+    if (entityType == PLAYER) {
+        if (acceleration.x > 0) {
+            acceleration.x -= 0.0007f;
+        }
+        else if (acceleration.x < 0) {
+            acceleration.x += 0.0007f;
+        }
+        if (CheckCollision(object) == true) {
+            *gameOver = true;
+        }
     }
-    else if (acceleration.x < 0) {
-        acceleration.x += 0.0007;
-    }
+
     position.y += velocity.y * deltaTime;
     position.x += velocity.x * deltaTime;
 

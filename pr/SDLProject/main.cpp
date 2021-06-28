@@ -14,6 +14,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include <vector>
 #include "Entity.h"
 
 struct GameState {
@@ -26,14 +27,17 @@ GameState state;
 
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
+bool gameOver = false;
 
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
 
+GLuint fontTextureID;
+
 //Vertices Coordinates
-float playerVertices[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
+float playerVertices[] = { -0.3, -0.3, 0.3, -0.3, 0.3, 0.3, -0.3, -0.3, 0.3, 0.3, -0.3, 0.3 };
 float playerTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
-float platVertices[] = { -2.0, -0.25, 2.0, -0.25, 2.0, 0.25, -2.0, -0.25, 2.0, 0.25, -2.0, 0.25 };
+float platVertices[] = { -2.0, -0.10, 2.0, -0.10, 2.0, 0.10, -2.0, -0.10, 2.0, 0.10, -2.0, 0.10 };
 float platTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
 float wallVertices[] = { -5.0, -0.5, 5.0, -0.5, 5.0, 0.5, -5.0, -0.5, 5.0, 0.5, -5.0, 0.5 };
 float wallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
@@ -88,30 +92,39 @@ void Initialize() {
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    fontTextureID = LoadTexture("font1.png");
+
     // Initialize Game Objects
     state.player = new Entity();
+    state.player->entityType = PLAYER;
     state.player->position = glm::vec3(0, 3.0f, 0);
     state.player->speed = 1.0f;
-    state.player->acceleration = glm::vec3(0, -0.0005f, 0);
-    state.player->textureID = LoadTexture("playerShip3_orange.png"); //Make this fire
+    state.player->acceleration = glm::vec3(0, -0.005f, 0);
+    state.player->textureID = LoadTexture("ship.png"); //ship
     state.player->entityVertices = playerVertices;
     state.player->entityTexCoords = playerTexCoord;
+    state.player->height = 0.10;
+    state.player->width = 0.5;
 
     state.platform = new Entity();
+    state.platform->entityType = PLATFORM;
     GLuint platformTextureID = LoadTexture("platformPack_tile017.png"); //Water tile to land in
     state.platform->textureID = platformTextureID;
-    state.platform->position = glm::vec3(0, -3.0f, 0);
+    state.platform->position = glm::vec3(0, -2.85f, 0);
     state.platform->entityVertices = platVertices;
     state.platform->entityTexCoords = platTexCoord;
-    state.platform->Update(0);
+    state.platform->width = 2.9;
+    state.platform->height = 0.7;
+    state.platform->Update(0, NULL, NULL);
 
     state.wall = new Entity();
-    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Make these explosives
+    state.wall->entityType = WALL;
+    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Moon rock/wall, lose if you land here
     state.wall->textureID = wallTextureID;
     state.wall->position = glm::vec3(0, -3.25f, 0);
     state.wall->entityVertices = wallVertices;
     state.wall->entityTexCoords = wallTexCoord;
-    state.wall->Update(0);
+    state.wall->Update(0, NULL, NULL);
 }
 
 void ProcessInput() {
@@ -129,6 +142,10 @@ void ProcessInput() {
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
             case SDLK_SPACE:
+                gameOver = false;
+                state.player->position = glm::vec3(0, 3.0f, 0);
+                state.player->acceleration = glm::vec3(0, -0.005f, 0);
+                state.player->velocity = glm::vec3(0, 0, 0);
                 // Some sort of action
                 break;
             }
@@ -136,21 +153,21 @@ void ProcessInput() {
         }
     }
 
-    const Uint8* keys = SDL_GetKeyboardState(NULL);
+    if (gameOver == false) {
+        const Uint8* keys = SDL_GetKeyboardState(NULL);
+        if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -7.0f) {
+            state.player->acceleration.x += -0.001f;
+            state.player->animIndices = state.player->animLeft;
+        }
+        else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 7.0f) {
+            state.player->acceleration.x += 0.001f;
+            state.player->animIndices = state.player->animRight;
+        }
 
-    if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -7.0f) {
-        state.player->acceleration.x += -0.001f;
-        state.player->animIndices = state.player->animLeft;
+        if (glm::length(state.player->movement) > 1.0f) {
+            state.player->movement = glm::normalize(state.player->movement);
+        }
     }
-    else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 7.0f) {
-        state.player->acceleration.x += 0.001f;
-        state.player->animIndices = state.player->animRight;
-    }
-
-    if (glm::length(state.player->movement) > 1.0f) {
-        state.player->movement = glm::normalize(state.player->movement);
-    }
-
 }
 
 #define FIXED_TIMESTEP 0.0166666f
@@ -162,24 +179,79 @@ void Update() {
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    deltaTime += accumulator;
-    if (deltaTime < FIXED_TIMESTEP) {
-        accumulator = deltaTime;
-        return;
+    if (gameOver == false) {
+        deltaTime += accumulator;
+        if (deltaTime < FIXED_TIMESTEP) {
+            accumulator = deltaTime;
+            return;
+        }
+
+        while (deltaTime >= FIXED_TIMESTEP) {
+            state.player->Update(FIXED_TIMESTEP, &gameOver, state.platform);
+            deltaTime -= FIXED_TIMESTEP;
+        }
     }
+}
 
-    while (deltaTime >= FIXED_TIMESTEP) {
-        state.player->Update(FIXED_TIMESTEP);
+void DrawText(ShaderProgram* program, GLuint fontTextureID, std::string text, float size, float spacing, glm::vec3 position) {
+    float width = 1.0f / 16.0f;
+    float height = 1.0f / 16.0f;
 
-        deltaTime -= FIXED_TIMESTEP;
-    }
+    std::vector<float> vertices;
+    std::vector<float> texCoords;
 
-    state.player->Update(deltaTime);
+    for (int i = 0; i < text.size(); i++) {
+
+        int index = (int)text[i];
+        float offset = (size + spacing) * i;
+
+        float u = (float)(index % 16) / 16.0f;
+        float v = (float)(index / 16) / 16.0f;
+
+        vertices.insert(vertices.end(), {
+            offset + (-0.5f * size), 0.5f * size,
+            offset + (-0.5f * size), -0.5f * size,
+            offset + (0.5f * size), 0.5f * size,
+            offset + (0.5f * size), -0.5f * size,
+            offset + (0.5f * size), 0.5f * size,
+            offset + (-0.5f * size), -0.5f * size,
+        });
+
+        texCoords.insert(texCoords.end(), {
+            u, v,
+            u, v + height,
+            u + width, v,
+            u + width, v + height,
+            u + width, v,
+            u, v + height,
+        });
+    } // end of for loop
+
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
+    modelMatrix = glm::translate(modelMatrix, position);
+    program->SetModelMatrix(modelMatrix);
+
+    glUseProgram(program->programID);
+
+    glVertexAttribPointer(program->positionAttribute, 2, GL_FLOAT, false, 0, vertices.data());
+    glEnableVertexAttribArray(program->positionAttribute);
+
+    glVertexAttribPointer(program->texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords.data());
+    glEnableVertexAttribArray(program->texCoordAttribute);
+
+    glBindTexture(GL_TEXTURE_2D, fontTextureID);
+    glDrawArrays(GL_TRIANGLES, 0, (int)(text.size() * 6));
+
+    glDisableVertexAttribArray(program->positionAttribute);
+    glDisableVertexAttribArray(program->texCoordAttribute);
 }
 
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
-
+    
+    if (gameOver == true) {
+        DrawText(&program, fontTextureID, "Game Over!", 0.9f, -0.10f, glm::vec3( -3.4f, 1.0f, 0));
+    }
     state.wall->Render(&program);
     state.platform->Render(&program);
     state.player->Render(&program);
