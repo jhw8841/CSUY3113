@@ -17,6 +17,8 @@
 #include <vector>
 #include "Entity.h"
 
+#define WALL_COUNT 5
+
 struct GameState {
     Entity* player;
     Entity* platform;
@@ -27,12 +29,14 @@ GameState state;
 
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
-bool gameOver = false;
+int gameState = 1; //1 = game currently in progress, 0 = mission failed, 2 = mission successful
 
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
 
 GLuint fontTextureID;
+
+int boosterFuel = 10000;
 
 //Vertices Coordinates
 float playerVertices[] = { -0.3, -0.3, 0.3, -0.3, 0.3, 0.3, -0.3, -0.3, 0.3, 0.3, -0.3, 0.3 };
@@ -41,6 +45,10 @@ float platVertices[] = { -2.0, -0.10, 2.0, -0.10, 2.0, 0.10, -2.0, -0.10, 2.0, 0
 float platTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
 float wallVertices[] = { -5.0, -0.5, 5.0, -0.5, 5.0, 0.5, -5.0, -0.5, 5.0, 0.5, -5.0, 0.5 };
 float wallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float sideWallVertices[] = { -0.25, -3.25, 0.25, -3.25, 0.25, 3.25, -0.25, -3.25, 0.25, 3.25, -0.25, 3.25 };
+float sideWallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float platformWallVertices[] = { -2.5, -0.25, 2.5, -0.25, 2.5, 0.25, -2.5, -0.25, 2.5, 0.25, -2.5, 0.25 };
+float platformWallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
 
 GLuint LoadTexture(const char* filePath) {
     int w, h, n;
@@ -97,34 +105,72 @@ void Initialize() {
     // Initialize Game Objects
     state.player = new Entity();
     state.player->entityType = PLAYER;
-    state.player->position = glm::vec3(0, 3.0f, 0);
+    state.player->position = glm::vec3(3.85f, 3.4f, 0);
     state.player->speed = 1.0f;
-    state.player->acceleration = glm::vec3(0, -0.005f, 0);
-    state.player->textureID = LoadTexture("ship.png"); //ship
+    state.player->acceleration = glm::vec3(0, -0.0015f, 0);
+    state.player->textureID = LoadTexture("ship.png"); //Ship
     state.player->entityVertices = playerVertices;
     state.player->entityTexCoords = playerTexCoord;
-    state.player->height = 0.10;
-    state.player->width = 0.5;
+    state.player->height = 0.3;
+    state.player->width = 0.3;
 
     state.platform = new Entity();
     state.platform->entityType = PLATFORM;
-    GLuint platformTextureID = LoadTexture("platformPack_tile017.png"); //Water tile to land in
+    GLuint platformTextureID = LoadTexture("platformPack_tile017.png"); //Land on the water patch to win
     state.platform->textureID = platformTextureID;
-    state.platform->position = glm::vec3(0, -2.85f, 0);
+    state.platform->position = glm::vec3(2, -2.85f, 0);
     state.platform->entityVertices = platVertices;
     state.platform->entityTexCoords = platTexCoord;
-    state.platform->width = 2.9;
-    state.platform->height = 0.7;
-    state.platform->Update(0, NULL, NULL);
+    state.platform->width = 3.15;
+    state.platform->height = 0.5;
+    state.platform->Update(0, NULL, NULL, NULL, 0);
 
-    state.wall = new Entity();
-    state.wall->entityType = WALL;
-    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Moon rock/wall, lose if you land here
-    state.wall->textureID = wallTextureID;
-    state.wall->position = glm::vec3(0, -3.25f, 0);
-    state.wall->entityVertices = wallVertices;
-    state.wall->entityTexCoords = wallTexCoord;
-    state.wall->Update(0, NULL, NULL);
+    state.wall = new Entity[WALL_COUNT];
+
+    for (int i = 0; i < WALL_COUNT; i++) {
+        state.wall[i].entityType = WALL;
+    }
+
+    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Moon rock, you lose if you land/crash on the moon rock
+    state.wall[0].textureID = wallTextureID;
+    state.wall[0].position = glm::vec3(0, -3.25f, 0);
+    state.wall[0].width = 9.0;
+    state.wall[0].height = 1.30;
+    state.wall[0].entityVertices = wallVertices;
+    state.wall[0].entityTexCoords = wallTexCoord;
+
+    GLuint sideWallTextureID = LoadTexture("platformPack_tile016.png");
+    for (int i = 1; i < WALL_COUNT; i++) {
+        state.wall[i].textureID = sideWallTextureID;
+    }
+    
+    state.wall[1].position = glm::vec3(-4.75f, 0.5f, 0);
+    state.wall[1].entityVertices = sideWallVertices;
+    state.wall[1].entityTexCoords = sideWallTexCoord;
+    state.wall[1].width = 0.8;
+    state.wall[1].height = 7.0;
+
+    state.wall[2].position = glm::vec3(4.75f, 0.5f, 0);
+    state.wall[2].entityVertices = sideWallVertices;
+    state.wall[2].entityTexCoords = sideWallTexCoord;
+    state.wall[2].width = 0.8;
+    state.wall[2].height = 7.0;
+
+    state.wall[3].position = glm::vec3(2.0f, 1.4f, 0);
+    state.wall[3].entityVertices = platformWallVertices;
+    state.wall[3].entityTexCoords = platformWallTexCoord;
+    state.wall[3].width = 5.3;
+    state.wall[3].height = 0.8;
+
+    state.wall[4].position = glm::vec3(-2.0f, -1.25f, 0);
+    state.wall[4].entityVertices = platformWallVertices;
+    state.wall[4].entityTexCoords = platformWallTexCoord;
+    state.wall[4].width = 5.3;
+    state.wall[4].height = 0.8;
+
+    for (int i = 0; i < WALL_COUNT; i++) {
+        state.wall[i].Update(0, NULL, NULL, NULL, 0);
+    }
 }
 
 void ProcessInput() {
@@ -142,26 +188,29 @@ void ProcessInput() {
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
             case SDLK_SPACE:
-                gameOver = false;
-                state.player->position = glm::vec3(0, 3.0f, 0);
-                state.player->acceleration = glm::vec3(0, -0.005f, 0);
+                gameState = 1;
+                state.player->position = glm::vec3(3.85f, 3.4f, 0);
+                state.player->acceleration = glm::vec3(0, -0.0015f, 0);
                 state.player->velocity = glm::vec3(0, 0, 0);
-                // Some sort of action
+                boosterFuel = 10000;
                 break;
             }
-            break; // SDL_KEYDOWN
+            break;
         }
     }
 
-    if (gameOver == false) {
+    if (gameState == 1) {
         const Uint8* keys = SDL_GetKeyboardState(NULL);
-        if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -7.0f) {
-            state.player->acceleration.x += -0.001f;
-            state.player->animIndices = state.player->animLeft;
+        if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -5.0f) {
+            state.player->acceleration.x += -0.0025f;
         }
-        else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 7.0f) {
-            state.player->acceleration.x += 0.001f;
-            state.player->animIndices = state.player->animRight;
+        else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 5.0f) {
+            state.player->acceleration.x += 0.0025f;
+        }
+
+        if (keys[SDL_SCANCODE_UP] && boosterFuel > 0 && state.player->acceleration.y < 0.002) {
+            state.player->acceleration.y += 0.001f;
+            boosterFuel -= 1;
         }
 
         if (glm::length(state.player->movement) > 1.0f) {
@@ -179,7 +228,7 @@ void Update() {
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    if (gameOver == false) {
+    if (gameState == 1) {
         deltaTime += accumulator;
         if (deltaTime < FIXED_TIMESTEP) {
             accumulator = deltaTime;
@@ -187,7 +236,7 @@ void Update() {
         }
 
         while (deltaTime >= FIXED_TIMESTEP) {
-            state.player->Update(FIXED_TIMESTEP, &gameOver, state.platform);
+            state.player->Update(FIXED_TIMESTEP, &gameState, state.platform, state.wall, WALL_COUNT);
             deltaTime -= FIXED_TIMESTEP;
         }
     }
@@ -249,12 +298,21 @@ void DrawText(ShaderProgram* program, GLuint fontTextureID, std::string text, fl
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
     
-    if (gameOver == true) {
-        DrawText(&program, fontTextureID, "Game Over!", 0.9f, -0.10f, glm::vec3( -3.4f, 1.0f, 0));
+
+    for (int i = 0; i < WALL_COUNT; i++) {
+        state.wall[i].Render(&program);
     }
-    state.wall->Render(&program);
     state.platform->Render(&program);
     state.player->Render(&program);
+
+    DrawText(&program, fontTextureID, "Booster Fuel:" + std::to_string(boosterFuel), 0.5f, -0.25f, glm::vec3(-4.7f, -3.45f, 0));
+
+    if (gameState == 2) {
+        DrawText(&program, fontTextureID, "Mission Successful", 1.0f, -0.5f, glm::vec3(-4.1f, 1.0f, 0));
+    }
+    else if (gameState == 0) {
+        DrawText(&program, fontTextureID, "Mission Failed", 1.0f, -0.5f, glm::vec3(-3.4f, 1.0f, 0));
+    }
 
     SDL_GL_SwapWindow(displayWindow);
 }

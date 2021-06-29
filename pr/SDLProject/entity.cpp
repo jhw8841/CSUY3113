@@ -11,19 +11,53 @@ Entity::Entity()
     modelMatrix = glm::mat4(1.0f);
 }
 
-bool Entity::CheckCollision(Entity* other) {
-    double xdist = fabs(position.x - other->position.x) - ((width + other->width) / 2.0);
-    double ydist = fabs(position.y - other->position.y) - ((height + other->height) / 2.0);
+bool Entity::CheckCollision(Entity* other, int otherCount) {
+    if (other->entityType == WALL) {
+        for (int i = 0; i < otherCount; i++) {
+            Entity* object = &other[i];
 
-    if (xdist < 0 && ydist < 0) {
-        return true;
+            double xdist = fabs(position.x - object->position.x) - ((width + object->width) / 2.0);
+            double ydist = fabs(position.y - object->position.y) - ((height + object->height) / 2.0);
+            if (xdist < 0 && ydist < 0) {
+                return true;
+            }
+        }
     }
-
+    else {
+        double xdist = fabs(position.x - other->position.x) - ((width + other->width) / 2.0);
+        double ydist = fabs(position.y - other->position.y) - ((height + other->height) / 2.0);
+        if (xdist < 0 && ydist < 0) {
+            return true;
+        }
+    }
     return false;
 }
 
-void Entity::Update(float deltaTime, bool* gameOver, Entity* object)
+void Entity::Update(float deltaTime, int* gameState, Entity* platform, Entity* walls, int WALL_COUNT)
 {
+    if (entityType == PLAYER) {
+        if (acceleration.x > 0) {
+            acceleration.x -= 0.0006f;
+        }
+        else if (acceleration.x < 0) {
+            acceleration.x += 0.0006f;
+        }
+        if (acceleration.y > -0.00075f)
+        {
+            acceleration.y -= 0.00075f;
+        }
+
+        if (position.y > 4.1) {
+            *gameState = 0;
+        }
+        if (CheckCollision(platform, 0) == true) {
+            *gameState = 2;
+        }
+        else if (CheckCollision(walls, WALL_COUNT) == true) {
+            *gameState = 0;
+        }
+    }
+
     if (animIndices != NULL) {
         if (glm::length(movement) != 0) {
             animTime += deltaTime;
@@ -45,18 +79,6 @@ void Entity::Update(float deltaTime, bool* gameOver, Entity* object)
 
     velocity.x = movement.x * speed;
     velocity += acceleration * deltaTime;
-
-    if (entityType == PLAYER) {
-        if (acceleration.x > 0) {
-            acceleration.x -= 0.0007f;
-        }
-        else if (acceleration.x < 0) {
-            acceleration.x += 0.0007f;
-        }
-        if (CheckCollision(object) == true) {
-            *gameOver = true;
-        }
-    }
 
     position.y += velocity.y * deltaTime;
     position.x += velocity.x * deltaTime;
@@ -104,6 +126,7 @@ void Entity::Render(ShaderProgram* program) {
 
     glVertexAttribPointer(program->positionAttribute, 2, GL_FLOAT, false, 0, entityVertices);
     glEnableVertexAttribArray(program->positionAttribute);
+
 
     glVertexAttribPointer(program->texCoordAttribute, 2, GL_FLOAT, false, 0, entityTexCoords);
     glEnableVertexAttribArray(program->texCoordAttribute);

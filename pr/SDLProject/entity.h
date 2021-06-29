@@ -48,9 +48,9 @@ public:
 
     Entity();
 
-    bool CheckCollision(Entity* other);
+    bool CheckCollision(Entity* other, int otherCount);
 
-    void Update(float deltaTime, bool* gameOver, Entity* object);
+    void Update(float deltaTime, int* gameState, Entity* platform, Entity* walls, int WALL_COUNT);
     void Render(ShaderProgram* program);
     void DrawSpriteFromTextureAtlas(ShaderProgram* program, GLuint textureID, int index);
 };
