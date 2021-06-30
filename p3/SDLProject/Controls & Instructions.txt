@@ -1,0 +1,16 @@
+Lunar Lander Game
+
+Controls:
+Left Arrow Key: Accelerates the ship to the left
+Right Arrow Key: Accelerates the ship to the right
+Up Arrow Key: Accelerates the ship upwards
+Spacebar: Restart the game
+
+How to play:
+Control the acceleration of the ship to land on the bright blue platform while avoiding
+the "greyish" station walls/platforms. The ship will naturally want to return to 0
+horizontal velocity, but gravity will keep the downwards acceleration going.
+The ship must be fully within the blue platform to successfully land. Boosting the ship 
+off the screen will cause you to enter orbit and fail the landing mission. Boosting the 
+ship upwards costs fuel, once you run out of fuel you can no longer accelerate upwards. 
+Press spacebar to restart the game at any time.

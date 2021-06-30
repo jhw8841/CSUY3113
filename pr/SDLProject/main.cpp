@@ -19,7 +19,7 @@
 
 #define WALL_COUNT 5
 
-struct GameState {
+struct GameState { //Player is ship, platform is place to land, wall are the objects to avoid when landing
     Entity* player;
     Entity* platform;
     Entity* wall;
@@ -38,17 +38,17 @@ GLuint fontTextureID;
 
 int boosterFuel = 10000;
 
-//Vertices Coordinates
+//Vertices/Texture Coordinates for each different ship and platform/wall, walls are bad blocks which you lose if you crash into, plat is for winning platform
 float playerVertices[] = { -0.3, -0.3, 0.3, -0.3, 0.3, 0.3, -0.3, -0.3, 0.3, 0.3, -0.3, 0.3 };
 float playerTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
 float platVertices[] = { -2.0, -0.10, 2.0, -0.10, 2.0, 0.10, -2.0, -0.10, 2.0, 0.10, -2.0, 0.10 };
-float platTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float platTexCoord[] = { 0.0, 1.0, 20.0, 1.0, 20.0, 0.0, 0.0, 1.0, 20.0, 0.0, 0.0, 0.0 };
 float wallVertices[] = { -5.0, -0.5, 5.0, -0.5, 5.0, 0.5, -5.0, -0.5, 5.0, 0.5, -5.0, 0.5 };
-float wallTexCoord[] = { 0.0, 2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0 };
+float wallTexCoord[] = { 0.0, 1.0, 10.0, 1.0, 10.0, 0.0, 0.0, 1.0, 10.0, 0.0, 0.0, 0.0 };
 float sideWallVertices[] = { -0.25, -3.25, 0.25, -3.25, 0.25, 3.25, -0.25, -3.25, 0.25, 3.25, -0.25, 3.25 };
-float sideWallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float sideWallTexCoord[] = { 0.0, 13.0, 1.0, 13.0, 1.0, 0.0, 0.0, 13.0, 1.0, 0.0, 0.0, 0.0 };
 float platformWallVertices[] = { -2.5, -0.25, 2.5, -0.25, 2.5, 0.25, -2.5, -0.25, 2.5, 0.25, -2.5, 0.25 };
-float platformWallTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
+float platformWallTexCoord[] = { 0.0, 1.0, 10.0, 1.0, 10.0, 0.0, 0.0, 1.0, 10.0, 0.0, 0.0, 0.0 };
 
 GLuint LoadTexture(const char* filePath) {
     int w, h, n;
@@ -106,7 +106,7 @@ void Initialize() {
     fontTextureID = LoadTexture("font1.png");
 
     // Initialize Game Objects
-    state.player = new Entity();
+    state.player = new Entity(); //The player and their ship
     state.player->entityType = PLAYER;
     state.player->position = glm::vec3(3.85f, 3.4f, 0);
     state.player->speed = 1.0f;
@@ -119,7 +119,7 @@ void Initialize() {
 
     state.platform = new Entity();
     state.platform->entityType = PLATFORM;
-    GLuint platformTextureID = LoadTexture("platformPack_tile017.png"); //Land on the water patch to win
+    GLuint platformTextureID = LoadTexture("platformPack_tile007.png"); //Landing Pad Platform, Land on the pad to win, ship must be fully within the pad to win
     state.platform->textureID = platformTextureID;
     state.platform->position = glm::vec3(2, -2.85f, 0);
     state.platform->entityVertices = platVertices;
@@ -134,7 +134,7 @@ void Initialize() {
         state.wall[i].entityType = WALL;
     }
 
-    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Moon rock, you lose if you land/crash on the moon rock
+    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Moon Rock, you lose if you land/crash on the moon rock
     state.wall[0].textureID = wallTextureID;
     state.wall[0].position = glm::vec3(0, -3.25f, 0);
     state.wall[0].width = 9.0;
@@ -142,11 +142,12 @@ void Initialize() {
     state.wall[0].entityVertices = wallVertices;
     state.wall[0].entityTexCoords = wallTexCoord;
 
-    GLuint sideWallTextureID = LoadTexture("platformPack_tile016.png");
+    GLuint sideWallTextureID = LoadTexture("platformPack_tile041.png"); //Station Walls/Platforms, you lose if land/crash into station
     for (int i = 1; i < WALL_COUNT; i++) {
         state.wall[i].textureID = sideWallTextureID;
     }
     
+    //Manually make/set the walls
     state.wall[1].position = glm::vec3(-4.75f, 0.5f, 0);
     state.wall[1].entityVertices = sideWallVertices;
     state.wall[1].entityTexCoords = sideWallTexCoord;
@@ -190,7 +191,7 @@ void ProcessInput() {
 
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
-            case SDLK_SPACE:
+            case SDLK_SPACE: //pressing spacebar will restart the game
                 gameState = 1;
                 state.player->position = glm::vec3(3.85f, 3.4f, 0);
                 state.player->acceleration = glm::vec3(0, -0.0015f, 0);
@@ -301,15 +302,15 @@ void DrawText(ShaderProgram* program, GLuint fontTextureID, std::string text, fl
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
     
-
     for (int i = 0; i < WALL_COUNT; i++) {
         state.wall[i].Render(&program);
     }
     state.platform->Render(&program);
     state.player->Render(&program);
 
-    DrawText(&program, fontTextureID, "Booster Fuel:" + std::to_string(boosterFuel), 0.5f, -0.25f, glm::vec3(-4.7f, -3.45f, 0));
+    DrawText(&program, fontTextureID, "Booster Fuel:" + std::to_string(boosterFuel), 0.5f, -0.25f, glm::vec3(-4.7f, -3.45f, 0)); //Fuel Count
 
+    //Display correct message when crash/land
     if (gameState == 2) {
         DrawText(&program, fontTextureID, "Mission Successful", 1.0f, -0.5f, glm::vec3(-4.1f, 1.0f, 0));
     }
