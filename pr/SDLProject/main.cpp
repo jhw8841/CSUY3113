@@ -14,41 +14,24 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include <vector>
 #include "Entity.h"
 
-#define WALL_COUNT 5
+#define PLATFORM_COUNT 36
+#define ENEMY_COUNT 1
 
-struct GameState { //Player is ship, platform is place to land, wall are the objects to avoid when landing
+struct GameState {
     Entity* player;
-    Entity* platform;
-    Entity* wall;
+    Entity* platforms;
+    Entity* enemies;
 };
 
 GameState state;
 
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
-int gameState = 1; //1 = game currently in progress, 0 = mission failed, 2 = mission successful
 
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
-
-GLuint fontTextureID;
-
-int boosterFuel = 10000;
-
-//Vertices/Texture Coordinates for each different ship and platform/wall, walls are bad blocks which you lose if you crash into, plat is for winning platform
-float playerVertices[] = { -0.3, -0.3, 0.3, -0.3, 0.3, 0.3, -0.3, -0.3, 0.3, 0.3, -0.3, 0.3 };
-float playerTexCoord[] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
-float platVertices[] = { -2.0, -0.10, 2.0, -0.10, 2.0, 0.10, -2.0, -0.10, 2.0, 0.10, -2.0, 0.10 };
-float platTexCoord[] = { 0.0, 1.0, 20.0, 1.0, 20.0, 0.0, 0.0, 1.0, 20.0, 0.0, 0.0, 0.0 };
-float wallVertices[] = { -5.0, -0.5, 5.0, -0.5, 5.0, 0.5, -5.0, -0.5, 5.0, 0.5, -5.0, 0.5 };
-float wallTexCoord[] = { 0.0, 1.0, 10.0, 1.0, 10.0, 0.0, 0.0, 1.0, 10.0, 0.0, 0.0, 0.0 };
-float sideWallVertices[] = { -0.25, -3.25, 0.25, -3.25, 0.25, 3.25, -0.25, -3.25, 0.25, 3.25, -0.25, 3.25 };
-float sideWallTexCoord[] = { 0.0, 13.0, 1.0, 13.0, 1.0, 0.0, 0.0, 13.0, 1.0, 0.0, 0.0, 0.0 };
-float platformWallVertices[] = { -2.5, -0.25, 2.5, -0.25, 2.5, 0.25, -2.5, -0.25, 2.5, 0.25, -2.5, 0.25 };
-float platformWallTexCoord[] = { 0.0, 1.0, 10.0, 1.0, 10.0, 0.0, 0.0, 1.0, 10.0, 0.0, 0.0, 0.0 };
 
 GLuint LoadTexture(const char* filePath) {
     int w, h, n;
@@ -63,9 +46,6 @@ GLuint LoadTexture(const char* filePath) {
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_NEAREST);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -98,83 +78,117 @@ void Initialize() {
 
     glUseProgram(program.programID);
 
-    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    glClearColor(0.8588f, 0.9137f, 0.9569f, 1.0f);
     glEnable(GL_BLEND);
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    fontTextureID = LoadTexture("font1.png");
 
     // Initialize Game Objects
-    state.player = new Entity(); //The player and their ship
+    state.player = new Entity();
     state.player->entityType = PLAYER;
-    state.player->position = glm::vec3(3.85f, 3.4f, 0);
-    state.player->speed = 1.0f;
-    state.player->acceleration = glm::vec3(0, -0.0015f, 0);
-    state.player->textureID = LoadTexture("ship.png"); //Ship
-    state.player->entityVertices = playerVertices;
-    state.player->entityTexCoords = playerTexCoord;
-    state.player->height = 0.3;
-    state.player->width = 0.3;
+    state.player->position = glm::vec3(-4, -2, 0);
+    state.player->movement = glm::vec3(0);
+    state.player->acceleration = glm::vec3(0, -9.81f, 0);
+    state.player->speed = 2.0f;
+    state.player->textureID = LoadTexture("playerBlue_walk2.png");
+    state.player->height = 0.5f;
+    state.player->width = 0.15f;
+    state.player->jumpPower = 5.75;
 
-    state.platform = new Entity();
-    state.platform->entityType = PLATFORM;
-    GLuint platformTextureID = LoadTexture("platformPack_tile007.png"); //Landing Pad Platform, Land on the pad to win, ship must be fully within the pad to win
-    state.platform->textureID = platformTextureID;
-    state.platform->position = glm::vec3(2, -2.85f, 0);
-    state.platform->entityVertices = platVertices;
-    state.platform->entityTexCoords = platTexCoord;
-    state.platform->width = 3.15;
-    state.platform->height = 0.5;
-    state.platform->Update(0, NULL, NULL, NULL, 0);
+    /*
+    state.player->animRight = new int[4]{ 3, 7, 11, 15 };
+    state.player->animLeft = new int[4]{ 1, 5, 9, 13 };
+    state.player->animUp = new int[4]{ 2, 6, 10, 14 };
+    state.player->animDown = new int[4]{ 0, 4, 8, 12 };
+    state.player->animIndices = state.player->animRight;
+    state.player->animFrames = 4;
+    state.player->animIndex = 0;
+    state.player->animTime = 0;
+    state.player->animCols = 4;
+    state.player->animRows = 4;
+    */
 
-    state.wall = new Entity[WALL_COUNT];
+    state.platforms = new Entity[PLATFORM_COUNT];
+    GLuint platformTextureID = LoadTexture("tilesheet_complete.png");
 
-    for (int i = 0; i < WALL_COUNT; i++) {
-        state.wall[i].entityType = WALL;
+    for (int i = 0; i < PLATFORM_COUNT; i++) {
+        state.platforms[i].entityType = PLATFORM;
+        state.platforms[i].textureID = platformTextureID;
+        state.platforms[i].width = 0.5f;
+        state.platforms[i].height = 0.5f;
+        state.platforms[i].animRows = 12;
+        state.platforms[i].animCols = 22;
+        state.platforms[i].animFrames = 1;
     }
 
-    GLuint wallTextureID = LoadTexture("platformPack_tile016.png"); //Moon Rock, you lose if you land/crash on the moon rock
-    state.wall[0].textureID = wallTextureID;
-    state.wall[0].position = glm::vec3(0, -3.25f, 0);
-    state.wall[0].width = 9.0;
-    state.wall[0].height = 1.30;
-    state.wall[0].entityVertices = wallVertices;
-    state.wall[0].entityTexCoords = wallTexCoord;
-
-    GLuint sideWallTextureID = LoadTexture("platformPack_tile041.png"); //Station Walls/Platforms, you lose if land/crash into station
-    for (int i = 1; i < WALL_COUNT; i++) {
-        state.wall[i].textureID = sideWallTextureID;
+    //Ground Platform
+    state.platforms[0].position = glm::vec3(-4.75f, -3.5f, 0);
+    state.platforms[0].animIndices = new int[1]{ 133 };
+    state.platforms[19].position = glm::vec3(-4.75f + (19 * 0.5), -3.5f, 0);
+    state.platforms[19].animIndices = new int[1]{ 135 };
+    for (int i = 1; i < PLATFORM_COUNT - 17; i++) {
+        state.platforms[i].position = glm::vec3(-4.75f + (i*0.5), -3.5f, 0);
+        state.platforms[i].animIndices = new int[1]{ 134 };
     }
-    
-    //Manually make/set the walls
-    state.wall[1].position = glm::vec3(-4.75f, 0.5f, 0);
-    state.wall[1].entityVertices = sideWallVertices;
-    state.wall[1].entityTexCoords = sideWallTexCoord;
-    state.wall[1].width = 0.8;
-    state.wall[1].height = 7.0;
 
-    state.wall[2].position = glm::vec3(4.75f, 0.5f, 0);
-    state.wall[2].entityVertices = sideWallVertices;
-    state.wall[2].entityTexCoords = sideWallTexCoord;
-    state.wall[2].width = 0.8;
-    state.wall[2].height = 7.0;
-
-    state.wall[3].position = glm::vec3(2.0f, 1.4f, 0);
-    state.wall[3].entityVertices = platformWallVertices;
-    state.wall[3].entityTexCoords = platformWallTexCoord;
-    state.wall[3].width = 5.3;
-    state.wall[3].height = 0.8;
-
-    state.wall[4].position = glm::vec3(-2.0f, -1.25f, 0);
-    state.wall[4].entityVertices = platformWallVertices;
-    state.wall[4].entityTexCoords = platformWallTexCoord;
-    state.wall[4].width = 5.3;
-    state.wall[4].height = 0.8;
-
-    for (int i = 0; i < WALL_COUNT; i++) {
-        state.wall[i].Update(0, NULL, NULL, NULL, 0);
+    //Low-Mid Platform
+    int platInc = 0; //Platform Incrementer
+    state.platforms[20].position = glm::vec3(-1.25f, -2.0f, 0);
+    state.platforms[20].animIndices = new int[1]{ 161 };
+    for (int i = 21; i < PLATFORM_COUNT - 11; i++) {
+        state.platforms[i].position = glm::vec3(-0.75f + (platInc * 0.5), -2.0f, 0);
+        state.platforms[i].animIndices = new int[1]{ 134 };
+        ++platInc;
     }
+    state.platforms[25].position = glm::vec3(-0.75f + (platInc * 0.5), -2.0f, 0);
+    state.platforms[25].animIndices = new int[1]{ 162 };
+
+    //Mid-Right Triangular Platform
+    state.platforms[26].position = glm::vec3(3.25f, -1.0f, 0);
+    state.platforms[26].animIndices = new int[1]{ 183 };
+    state.platforms[27].position = glm::vec3(3.75f, -1.0f, 0);
+    state.platforms[27].animIndices = new int[1]{ 184 };
+
+    //Mid-High Triangular 1
+    state.platforms[28].position = glm::vec3(1.25f, 0.5f, 0);
+    state.platforms[28].animIndices = new int[1]{ 183 };
+    state.platforms[29].position = glm::vec3(1.75f, 0.5f, 0);
+    state.platforms[29].animIndices = new int[1]{ 184 };
+    //Mid-High Triangular 2
+    state.platforms[30].position = glm::vec3(-1.75f, 0.5f, 0);
+    state.platforms[30].animIndices = new int[1]{ 183 };
+    state.platforms[31].position = glm::vec3(-1.25f, 0.5f, 0);
+    state.platforms[31].animIndices = new int[1]{ 184 };
+
+    //Left-High Platform 
+    state.platforms[32].position = glm::vec3(-4.75f, 1.5f, 0);
+    state.platforms[32].animIndices = new int[1]{ 161 };
+    platInc = 0;
+    for (int i = 33; i < PLATFORM_COUNT - 1; i++) {
+        state.platforms[i].position = glm::vec3(-4.25f + (platInc * 0.5), 1.5f, 0);
+        state.platforms[i].animIndices = new int[1]{ 134 };
+        ++platInc;
+    }
+    state.platforms[35].position = glm::vec3(-4.25f + (platInc * 0.5), 1.5f, 0);
+    state.platforms[35].animIndices = new int[1]{ 162 };
+
+    //Update platforms to initialized positions
+    for (int i = 0; i < PLATFORM_COUNT; i++) {
+        state.platforms[i].Update(0, NULL, NULL, 0);
+    }
+
+    /*
+    state.enemies = new Entity[ENEMY_COUNT];
+    GLuint enemyTextureID = LoadTexture("enemyFlyingAlt_3.png");
+
+    state.enemies[0].entityType = ENEMY;
+    state.enemies[0].textureID = enemyTextureID;
+    state.enemies[0].position = glm::vec3(4, -2.25, 0);
+    state.enemies[0].speed = 1;
+    state.enemies[0].aiType = WAITANDGO;
+    state.enemies[0].aiState = IDLE;
+    */
 }
 
 void ProcessInput() {
@@ -191,36 +205,39 @@ void ProcessInput() {
 
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
-            case SDLK_SPACE: //pressing spacebar will restart the game
-                gameState = 1;
-                state.player->position = glm::vec3(3.85f, 3.4f, 0);
-                state.player->acceleration = glm::vec3(0, -0.0015f, 0);
-                state.player->velocity = glm::vec3(0, 0, 0);
-                boosterFuel = 10000;
+            case SDLK_LEFT:
+                // Move the player left
+                break;
+
+            case SDLK_RIGHT:
+                // Move the player right
+                break;
+
+            case SDLK_SPACE:
+                if (state.player->collidedBottom == true) {
+                    state.player->jump = true;
+                }
                 break;
             }
-            break;
+            break; // SDL_KEYDOWN
         }
     }
 
-    if (gameState == 1) {
-        const Uint8* keys = SDL_GetKeyboardState(NULL);
-        if (keys[SDL_SCANCODE_LEFT] && state.player->acceleration.x > -5.0f) {
-            state.player->acceleration.x += -0.0025f;
-        }
-        else if (keys[SDL_SCANCODE_RIGHT] && state.player->acceleration.x < 5.0f) {
-            state.player->acceleration.x += 0.0025f;
-        }
+    const Uint8* keys = SDL_GetKeyboardState(NULL);
 
-        if (keys[SDL_SCANCODE_UP] && boosterFuel > 0 && state.player->acceleration.y < 0.002) {
-            state.player->acceleration.y += 0.001f;
-            boosterFuel -= 1;
-        }
-
-        if (glm::length(state.player->movement) > 1.0f) {
-            state.player->movement = glm::normalize(state.player->movement);
-        }
+    if (keys[SDL_SCANCODE_LEFT]) {
+        state.player->movement.x = -1.0f;
+        //state.player->animIndices = state.player->animLeft;
     }
+    else if (keys[SDL_SCANCODE_RIGHT]) {
+        state.player->movement.x = 1.0f;
+        //state.player->animIndices = state.player->animRight;
+    }
+
+    if (glm::length(state.player->movement) > 1.0f) {
+        state.player->movement = glm::normalize(state.player->movement);
+    }
+
 }
 
 #define FIXED_TIMESTEP 0.0166666f
@@ -232,91 +249,40 @@ void Update() {
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    if (gameState == 1) {
-        deltaTime += accumulator;
-        if (deltaTime < FIXED_TIMESTEP) {
-            accumulator = deltaTime;
-            return;
-        }
-
-        while (deltaTime >= FIXED_TIMESTEP) {
-            state.player->Update(FIXED_TIMESTEP, &gameState, state.platform, state.wall, WALL_COUNT);
-            deltaTime -= FIXED_TIMESTEP;
-        }
+    deltaTime += accumulator;
+    if (deltaTime < FIXED_TIMESTEP) {
+        accumulator = deltaTime;
+        return;
     }
-}
 
-void DrawText(ShaderProgram* program, GLuint fontTextureID, std::string text, float size, float spacing, glm::vec3 position) {
-    float width = 1.0f / 16.0f;
-    float height = 1.0f / 16.0f;
+    while (deltaTime >= FIXED_TIMESTEP) {
+        // Update. Notice it's FIXED_TIMESTEP. Not deltaTime
+        state.player->Update(FIXED_TIMESTEP, state.player, state.platforms, PLATFORM_COUNT);
+        /*
+        for (int i = 0; i < ENEMY_COUNT; i++) {
+            state.enemies[i].Update(FIXED_TIMESTEP, state.player, state.platforms, PLATFORM_COUNT);
+        }
+        */
 
-    std::vector<float> vertices;
-    std::vector<float> texCoords;
+        deltaTime -= FIXED_TIMESTEP;
+    }
 
-    for (int i = 0; i < text.size(); i++) {
-
-        int index = (int)text[i];
-        float offset = (size + spacing) * i;
-
-        float u = (float)(index % 16) / 16.0f;
-        float v = (float)(index / 16) / 16.0f;
-
-        vertices.insert(vertices.end(), {
-            offset + (-0.5f * size), 0.5f * size,
-            offset + (-0.5f * size), -0.5f * size,
-            offset + (0.5f * size), 0.5f * size,
-            offset + (0.5f * size), -0.5f * size,
-            offset + (0.5f * size), 0.5f * size,
-            offset + (-0.5f * size), -0.5f * size,
-        });
-
-        texCoords.insert(texCoords.end(), {
-            u, v,
-            u, v + height,
-            u + width, v,
-            u + width, v + height,
-            u + width, v,
-            u, v + height,
-        });
-    } // end of for loop
-
-    glm::mat4 modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, position);
-    program->SetModelMatrix(modelMatrix);
-
-    glUseProgram(program->programID);
-
-    glVertexAttribPointer(program->positionAttribute, 2, GL_FLOAT, false, 0, vertices.data());
-    glEnableVertexAttribArray(program->positionAttribute);
-
-    glVertexAttribPointer(program->texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords.data());
-    glEnableVertexAttribArray(program->texCoordAttribute);
-
-    glBindTexture(GL_TEXTURE_2D, fontTextureID);
-    glDrawArrays(GL_TRIANGLES, 0, (int)(text.size() * 6));
-
-    glDisableVertexAttribArray(program->positionAttribute);
-    glDisableVertexAttribArray(program->texCoordAttribute);
+    accumulator = deltaTime;
 }
 
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
-    
-    for (int i = 0; i < WALL_COUNT; i++) {
-        state.wall[i].Render(&program);
+
+    for (int i = 0; i < PLATFORM_COUNT; i++) {
+        state.platforms[i].Render(&program);
     }
-    state.platform->Render(&program);
+    /*
+    for (int i = 0; i < ENEMY_COUNT; i++) {
+        state.enemies[i].Render(&program);
+    }
+    */
+
     state.player->Render(&program);
-
-    DrawText(&program, fontTextureID, "Booster Fuel:" + std::to_string(boosterFuel), 0.5f, -0.25f, glm::vec3(-4.7f, -3.45f, 0)); //Fuel Count
-
-    //Display correct message when crash/land
-    if (gameState == 2) {
-        DrawText(&program, fontTextureID, "Mission Successful", 1.0f, -0.5f, glm::vec3(-4.1f, 1.0f, 0));
-    }
-    else if (gameState == 0) {
-        DrawText(&program, fontTextureID, "Mission Failed", 1.0f, -0.5f, glm::vec3(-3.4f, 1.0f, 0));
-    }
 
     SDL_GL_SwapWindow(displayWindow);
 }
