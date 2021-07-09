@@ -13,7 +13,7 @@
 
 enum EntityType {PLAYER, PLATFORM, ENEMY};
 
-enum AIType {WALKER, WAITANDGO};
+enum AIType {WALKER, SLAMMER};
 enum AIState {IDLE, WALKING, ATTACKING};
 
 class Entity {
@@ -58,6 +58,9 @@ public:
     bool collidedLeft = false;
     bool collidedRight = false;
 
+    glm::vec3 sensorRight;
+    glm::vec3 sensorLeft;
+
     Entity();
 
     bool CheckCollision(Entity* other);
@@ -70,5 +73,5 @@ public:
 
     void AI(Entity* player);
     void AIWalker();
-    void AIWaitAndGo(Entity* player);
+    void AISlammer(Entity* player);
 };

@@ -8,6 +8,8 @@ Entity::Entity()
     velocity = glm::vec3(0);
     speed = 0;
 
+    sensorRight = glm::vec3(0);
+    sensorLeft = glm::vec3(0);
     modelMatrix = glm::mat4(1.0f);
 }
 
@@ -73,27 +75,35 @@ void Entity::CheckCollisionsX(Entity* objects, int objectCount)
 }
 
 void Entity::AIWalker() {
-
+    if (position.x >= 4.25f) {
+        movement = glm::vec3(-1, 0, 0);
+    }
+    else if (position.x <= -4.25f) {
+        movement = glm::vec3(1, 0, 0);
+    }
 }
 
-void Entity::AIWaitAndGo(Entity* player) {
+void Entity::AISlammer(Entity* player) {
     switch (aiState) {
         case IDLE:
-            if (glm::distance(position, player->position) < 3.0f) {
-                aiState = WALKING;
+            if (glm::distance(position.x, player->position.x) < 3.0f && glm::distance(position.y, player->position.y) < 0.25f) {
+                aiState = ATTACKING;
+                speed = 5;
             }
             break;
-
         case WALKING:
-            if (player->position.x < position.x) {
-                movement = glm::vec3(-1, 0, 0);
+            if (position.x <= -4.75f) {
+                aiState = IDLE;
+                speed = 0;
             }
-            else {
-                movement = glm::vec3(1, 0, 0);
-            }
+            movement = glm::vec3(-1, 0, 0);
             break;
-
         case ATTACKING:
+            if (position.x >= -2.25f) {
+                aiState = WALKING;
+                speed = 1;
+            }
+            movement = glm::vec3(1, 0, 0);
             break;
     }
 }
@@ -103,8 +113,8 @@ void Entity::AI(Entity* player) {
         case WALKER:
             AIWalker();
             break;
-        case WAITANDGO:
-            AIWaitAndGo(player);
+        case SLAMMER:
+            AISlammer(player);
             break;
     }
 }
@@ -143,23 +153,22 @@ void Entity::Update(float deltaTime, Entity* player, Entity* platforms, int plat
             animIndex = 0;
         }
     }*/
-    if (entityType == PLAYER) {
-        if (jump) {
-            jump = false;
-            velocity.y += jumpPower;
-        }
-
-        velocity.x = movement.x * speed;
-        velocity += acceleration * deltaTime;
-
-        position.y += velocity.y * deltaTime; // Move on Y
-        CheckCollisionsY(platforms, platformCount);// Fix if needed
-
-        position.x += velocity.x * deltaTime; // Move on X
-        CheckCollisionsX(platforms, platformCount);// Fix if needed
+    if (jump) {
+        jump = false;
+        velocity.y += jumpPower;
     }
-        modelMatrix = glm::mat4(1.0f);
-        modelMatrix = glm::translate(modelMatrix, position);
+
+    velocity.x = movement.x * speed;
+    velocity += acceleration * deltaTime;
+
+    position.y += velocity.y * deltaTime; // Move on Y
+    CheckCollisionsY(platforms, platformCount);// Fix if needed
+
+    position.x += velocity.x * deltaTime; // Move on X
+    CheckCollisionsX(platforms, platformCount);// Fix if needed
+
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix = glm::translate(modelMatrix, position);
 }
 
 void Entity::DrawSpriteFromTextureAtlas(ShaderProgram* program, GLuint textureID, int index)

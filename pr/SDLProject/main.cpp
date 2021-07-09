@@ -17,7 +17,7 @@
 #include "Entity.h"
 
 #define PLATFORM_COUNT 36
-#define ENEMY_COUNT 1
+#define ENEMY_COUNT 3
 
 struct GameState {
     Entity* player;
@@ -92,7 +92,7 @@ void Initialize() {
     state.player->acceleration = glm::vec3(0, -9.81f, 0);
     state.player->speed = 2.0f;
     state.player->textureID = LoadTexture("playerBlue_walk2.png");
-    state.player->height = 0.5f;
+    state.player->height = 0.48f;
     state.player->width = 0.15f;
     state.player->jumpPower = 5.75;
 
@@ -178,17 +178,30 @@ void Initialize() {
         state.platforms[i].Update(0, NULL, NULL, 0);
     }
 
-    /*
     state.enemies = new Entity[ENEMY_COUNT];
-    GLuint enemyTextureID = LoadTexture("enemyFlyingAlt_3.png");
+    GLuint enemyTextureID = LoadTexture("enemyFloating_1.png"); //Placeholder image
+
+    for (int i = 0; i < ENEMY_COUNT; i++) {
+        state.enemies[i].entityType = ENEMY;
+    }
 
     state.enemies[0].entityType = ENEMY;
     state.enemies[0].textureID = enemyTextureID;
-    state.enemies[0].position = glm::vec3(4, -2.25, 0);
+    state.enemies[0].position = glm::vec3(4.25f, -3.0f, 0);
+    state.enemies[0].movement = glm::vec3(-1, 0, 0);
     state.enemies[0].speed = 1;
-    state.enemies[0].aiType = WAITANDGO;
-    state.enemies[0].aiState = IDLE;
-    */
+    state.enemies[0].height = 0.5f;
+    state.enemies[0].width = 0.5f;
+    state.enemies[0].aiType = WALKER;
+
+    state.enemies[1].entityType = ENEMY;
+    state.enemies[1].textureID = enemyTextureID;
+    state.enemies[1].position = glm::vec3(-4.75f, 2.0f, 0);
+    state.enemies[1].speed = 1;
+    state.enemies[1].height = 0.5f;
+    state.enemies[1].width = 0.5f;
+    state.enemies[1].aiType = SLAMMER;
+    state.enemies[1].aiState = IDLE;
 }
 
 void ProcessInput() {
@@ -256,13 +269,11 @@ void Update() {
     }
 
     while (deltaTime >= FIXED_TIMESTEP) {
-        // Update. Notice it's FIXED_TIMESTEP. Not deltaTime
         state.player->Update(FIXED_TIMESTEP, state.player, state.platforms, PLATFORM_COUNT);
-        /*
-        for (int i = 0; i < ENEMY_COUNT; i++) {
+
+        for (int i = 0; i < ENEMY_COUNT - 1; i++) {
             state.enemies[i].Update(FIXED_TIMESTEP, state.player, state.platforms, PLATFORM_COUNT);
         }
-        */
 
         deltaTime -= FIXED_TIMESTEP;
     }
@@ -276,11 +287,9 @@ void Render() {
     for (int i = 0; i < PLATFORM_COUNT; i++) {
         state.platforms[i].Render(&program);
     }
-    /*
-    for (int i = 0; i < ENEMY_COUNT; i++) {
+    for (int i = 0; i < ENEMY_COUNT - 1; i++) {
         state.enemies[i].Render(&program);
     }
-    */
 
     state.player->Render(&program);
 
