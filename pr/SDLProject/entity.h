@@ -11,7 +11,8 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
 
-enum EntityType {PLAYER, PLATFORM, ENEMY};
+enum EntityType {PLAYER, PLATFORM, ENEMY, SWORD};
+enum Direction {NONE, LEFT, RIGHT};
 
 enum AIType {WALKER, SLAMMER};
 enum AIState {IDLE, WALKING, ATTACKING};
@@ -20,6 +21,7 @@ class Entity {
 public:
 
     EntityType entityType;
+    Direction direction;
     AIType aiType;
     AIState aiState;
 
@@ -27,6 +29,8 @@ public:
     glm::vec3 movement;
     glm::vec3 acceleration;
     glm::vec3 velocity;
+    glm::vec3 sensorLeft;
+    glm::vec3 sensorRight;
 
     float width = 1;
     float height = 1;
@@ -58,20 +62,17 @@ public:
     bool collidedLeft = false;
     bool collidedRight = false;
 
-    glm::vec3 sensorRight;
-    glm::vec3 sensorLeft;
-
     Entity();
 
     bool CheckCollision(Entity* other);
     void CheckCollisionsY(Entity* objects, int objectCount);
     void CheckCollisionsX(Entity* objects, int objectCount);
 
-    void Update(float deltaTime, Entity* player, Entity* platforms, int platformCount);
+    void Update(float deltaTime, int* gameStatus, Entity* player, Entity* sword, Entity* platforms, int platformCount);
     void Render(ShaderProgram* program);
     void DrawSpriteFromTextureAtlas(ShaderProgram* program, GLuint textureID, int index);
 
-    void AI(Entity* player);
+    void AI(int* gameStatus, Entity* player, Entity* sword);
     void AIWalker();
     void AISlammer(Entity* player);
 };

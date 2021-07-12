@@ -23,9 +23,11 @@ struct GameState {
     Entity* player;
     Entity* platforms;
     Entity* enemies;
+    Entity* sword;
 };
 
 GameState state;
+int gameStatus = 1; //1 = game ongoing, 0 = lose, 2 = win
 
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
@@ -95,6 +97,13 @@ void Initialize() {
     state.player->height = 0.48f;
     state.player->width = 0.15f;
     state.player->jumpPower = 5.75;
+
+    state.sword = new Entity();
+    state.sword->entityType = SWORD;
+    state.sword->textureID = LoadTexture("sword.png");
+    state.sword->position = glm::vec3(state.player->position.x + 0.33, state.player->position.y, 0);
+    state.sword->height = 0.15f;
+    state.sword->width = 0.25;
 
     /*
     state.player->animRight = new int[4]{ 3, 7, 11, 15 };
@@ -175,7 +184,7 @@ void Initialize() {
 
     //Update platforms to initialized positions
     for (int i = 0; i < PLATFORM_COUNT; i++) {
-        state.platforms[i].Update(0, NULL, NULL, 0);
+        state.platforms[i].Update(0, NULL, NULL, NULL, NULL, 0);
     }
 
     state.enemies = new Entity[ENEMY_COUNT];
@@ -218,14 +227,6 @@ void ProcessInput() {
 
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
-            case SDLK_LEFT:
-                // Move the player left
-                break;
-
-            case SDLK_RIGHT:
-                // Move the player right
-                break;
-
             case SDLK_SPACE:
                 if (state.player->collidedBottom == true) {
                     state.player->jump = true;
@@ -236,19 +237,20 @@ void ProcessInput() {
         }
     }
 
-    const Uint8* keys = SDL_GetKeyboardState(NULL);
+    if (gameStatus == 1) {
+        const Uint8* keys = SDL_GetKeyboardState(NULL);
+        if (keys[SDL_SCANCODE_LEFT]) {
+            state.player->movement.x = -1.0f;
+            state.player->direction = LEFT;
+        }
+        else if (keys[SDL_SCANCODE_RIGHT]) {
+            state.player->movement.x = 1.0f;
+            state.player->direction = RIGHT;
+        }
 
-    if (keys[SDL_SCANCODE_LEFT]) {
-        state.player->movement.x = -1.0f;
-        //state.player->animIndices = state.player->animLeft;
-    }
-    else if (keys[SDL_SCANCODE_RIGHT]) {
-        state.player->movement.x = 1.0f;
-        //state.player->animIndices = state.player->animRight;
-    }
-
-    if (glm::length(state.player->movement) > 1.0f) {
-        state.player->movement = glm::normalize(state.player->movement);
+        if (glm::length(state.player->movement) > 1.0f) {
+            state.player->movement = glm::normalize(state.player->movement);
+        }
     }
 
 }
@@ -262,20 +264,25 @@ void Update() {
     float deltaTime = ticks - lastTicks;
     lastTicks = ticks;
 
-    deltaTime += accumulator;
-    if (deltaTime < FIXED_TIMESTEP) {
-        accumulator = deltaTime;
-        return;
-    }
-
-    while (deltaTime >= FIXED_TIMESTEP) {
-        state.player->Update(FIXED_TIMESTEP, state.player, state.platforms, PLATFORM_COUNT);
-
-        for (int i = 0; i < ENEMY_COUNT - 1; i++) {
-            state.enemies[i].Update(FIXED_TIMESTEP, state.player, state.platforms, PLATFORM_COUNT);
+    if (gameStatus == 1) {
+        deltaTime += accumulator;
+        if (deltaTime < FIXED_TIMESTEP) {
+            accumulator = deltaTime;
+            return;
         }
 
-        deltaTime -= FIXED_TIMESTEP;
+        while (deltaTime >= FIXED_TIMESTEP) {
+            state.player->Update(FIXED_TIMESTEP, &gameStatus, state.player, state.sword, state.platforms, PLATFORM_COUNT);
+            state.sword->Update(FIXED_TIMESTEP, &gameStatus, state.player, state.sword, state.platforms, PLATFORM_COUNT);
+
+            for (int i = 0; i < ENEMY_COUNT - 1; i++) {
+                if (state.enemies[i].isActive == true) {
+                    state.enemies[i].Update(FIXED_TIMESTEP, &gameStatus, state.player, state.sword, state.platforms, PLATFORM_COUNT);
+                }
+            }
+
+            deltaTime -= FIXED_TIMESTEP;
+        }
     }
 
     accumulator = deltaTime;
@@ -288,10 +295,13 @@ void Render() {
         state.platforms[i].Render(&program);
     }
     for (int i = 0; i < ENEMY_COUNT - 1; i++) {
-        state.enemies[i].Render(&program);
+        if (state.enemies[i].isActive == true) {
+            state.enemies[i].Render(&program);
+        }
     }
 
     state.player->Render(&program);
+    state.sword->Render(&program);
 
     SDL_GL_SwapWindow(displayWindow);
 }
