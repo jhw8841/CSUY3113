@@ -1,0 +1,8 @@
+﻿  entity.cpp
+C:\CSUY3113\p4\SDLProject\entity.cpp(19,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\CSUY3113\p4\SDLProject\entity.cpp(20,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  main.cpp
+C:\CSUY3113\p4\SDLProject\main.cpp(351,23): warning C4018: '<': signed/unsigned mismatch
+  ShaderProgram.cpp
+  Generating Code...
+  SDLProject.vcxproj -> C:\CSUY3113\p4\SDLProject\Debug\SDLProject.exe
