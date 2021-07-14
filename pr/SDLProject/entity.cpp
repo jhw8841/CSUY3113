@@ -27,6 +27,26 @@ bool Entity::CheckCollision(Entity* other) {
     return false;
 }
 
+bool Entity::CheckSensorCollision(glm::vec3 sensor, Entity* objects, int objectCount) {
+    bool sensorConnecting = false;
+    double xCoordOne, yCoordOne;
+    double xCoordTwo, yCoordTwo;
+
+    for (int i = 0; i < objectCount; i++) {
+        Entity* object = &objects[i];
+        xCoordOne = object->position.x - 0.25;
+        yCoordOne = object->position.y + 0.25;
+
+        xCoordTwo = object->position.x + 0.25;
+        yCoordTwo = object->position.y - 0.25;
+
+        if (sensor.x >= xCoordOne && sensor.x <= xCoordTwo && sensor.y <= yCoordOne && sensor.y >= yCoordTwo) {
+            sensorConnecting = true;
+        }
+    }
+    return sensorConnecting;
+}
+
 void Entity::CheckCollisionsY(Entity* objects, int objectCount)
 {
     for (int i = 0; i < objectCount; i++)
@@ -75,7 +95,15 @@ void Entity::CheckCollisionsX(Entity* objects, int objectCount)
     }
 }
 
-void Entity::AIWalker() {
+void Entity::AIWalker(Entity* platforms, int platformCount) {
+    /*
+    if (CheckSensorCollision(sensorLeft, platforms, platformCount) == false) {
+        movement = glm::vec3(-1, 0, 0);
+    }
+    else if (CheckSensorCollision(sensorRight, platforms, platformCount) == false) {
+        movement = glm::vec3(1, 0, 0);
+    }*/
+
     if (position.x >= 4.25f) {
         movement = glm::vec3(-1, 0, 0);
     }
@@ -109,65 +137,86 @@ void Entity::AISlammer(Entity* player) {
     }
 }
 
-void Entity::AI(int* gameStatus, Entity* player, Entity* sword) {
-    sensorLeft = glm::vec3(position.x - 0.55f, position.y - 0.55f, 0);
-    sensorRight = glm::vec3(position.x + 0.55f, position.y - 0.55f, 0);
+void Entity::AIChaser(Entity* player) {
+    switch (aiState) {
+        case IDLE:
+            if (glm::distance(position, player->position) < 1.5f) {
+                aiState = ATTACKING;
+                speed = 0.5f;
+            }
+            break;
+        case ATTACKING:
+            velocity.y = movement.y * speed;
+            if (player->position.x < position.x - 0.025f) {
+                movement.x = -1;
+            }
+            else if (player->position.x > position.x + 0.05f) {
+                movement.x = 1;
+            }
+            if (player->position.y < position.y - 0.025f) {
+                movement.y = -1;
+            }
+            else if (player->position.y > position.y + 0.025f) {
+                movement.y = 1;
+            }
+            break;
+    }
+}
+
+void Entity::AI(int* gameStatus, int* remainingEnemies, Entity* player, Entity* sword, Entity* platforms, int platformCount) {
+    sensorLeft = glm::vec3(position.x - 0.3f, position.y - 0.3f, 0);
+    sensorRight = glm::vec3(position.x + 0.3f, position.y - 0.3f, 0);
 
     if (CheckCollision(player) == true) {
         *gameStatus = 0;
     }
     if (CheckCollision(sword) == true) {
         isActive = false;
+        *remainingEnemies -= 1;
     }
 
     switch (aiType) {
         case WALKER:
-            AIWalker();
+            AIWalker(platforms, platformCount);
             break;
         case SLAMMER:
             AISlammer(player);
             break;
+        case CHASER:
+            AIChaser(player);
+            break;
     }
 }
 
-void Entity::Update(float deltaTime, int* gameStatus, Entity* player, Entity* sword, Entity* platforms, int platformCount)
+void Entity::Update(float deltaTime, int* gameStatus, int* remainingEnemies, Entity* player, Entity* sword, Entity* platforms, int platformCount)
 {
+    if (isActive == false) {
+        return;
+    }
+
     collidedTop = false;
     collidedBottom = false;
     collidedLeft = false;
     collidedRight = false;
 
     if (entityType == ENEMY && isActive == true) {
-        AI(gameStatus, player, sword);
+        AI(gameStatus, remainingEnemies, player, sword, platforms, platformCount);
     }
     if (entityType == SWORD) {
         if (player->direction == LEFT) {
-            position = glm::vec3(player->position.x - 0.33, player->position.y, 0);
+            position = glm::vec3(player->position.x - 0.37f, player->position.y - 0.07f, 0);
         }
         else if (player->direction == RIGHT) {
-            position = glm::vec3(player->position.x + 0.33, player->position.y, 0);
+            position = glm::vec3(player->position.x + 0.37f, player->position.y - 0.07f, 0);
+        }
+
+        animTime += deltaTime;
+        if (animTime >= 0.5f) {
+            isActive = false;
+            animTime = 0.0f;
         }
     }
 
-    /*
-    if (animIndices != NULL) {
-        if (glm::length(movement) != 0) {
-            animTime += deltaTime;
-
-            if (animTime >= 0.25f)
-            {
-                animTime = 0.0f;
-                animIndex++;
-                if (animIndex >= animFrames)
-                {
-                    animIndex = 0;
-                }
-            }
-        }
-        else {
-            animIndex = 0;
-        }
-    }*/
     if (jump) {
         jump = false;
         velocity.y += jumpPower;
@@ -177,10 +226,20 @@ void Entity::Update(float deltaTime, int* gameStatus, Entity* player, Entity* sw
     velocity += acceleration * deltaTime;
 
     position.y += velocity.y * deltaTime; // Move on Y
-    CheckCollisionsY(platforms, platformCount);// Fix if needed
+    if (aiType != CHASER) {
+        CheckCollisionsY(platforms, platformCount);// Fix if needed
+    }
 
     position.x += velocity.x * deltaTime; // Move on X
-    CheckCollisionsX(platforms, platformCount);// Fix if needed
+    if (aiType != CHASER) {
+        CheckCollisionsX(platforms, platformCount);// Fix if needed
+    }
+
+    if (entityType == PLAYER) {
+        if (position.y < -3.25) {
+            *gameStatus = 0;
+        }
+    }
 
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::translate(modelMatrix, position);

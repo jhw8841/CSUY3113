@@ -6,6 +6,7 @@
 
 #define GL_GLEXT_PROTOTYPES 1
 #include <SDL.h>
+#include <SDL_mixer.h>
 #include <SDL_opengl.h>
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -29,8 +30,11 @@ glm::vec3 ball_movement = glm::vec3(0, 0, 0);
 float player_speed = 3.0f;
 float ball_speed = 3.0f;
 
+Mix_Music* music;
+Mix_Chunk* bounce;
+
 void Initialize() {
-    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     displayWindow = SDL_CreateWindow("Pong!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
@@ -42,6 +46,13 @@ void Initialize() {
     glViewport(0, 0, 640, 480);
 
     program.Load("shaders/vertex.glsl", "shaders/fragment.glsl");
+
+    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
+    music = Mix_LoadMUS("dooblydoo.mp3");
+    Mix_PlayMusic(music, -1);
+    Mix_VolumeMusic(MIX_MAX_VOLUME/4);
+
+    bounce = Mix_LoadWAV("bounce.wav");
 
     viewMatrix = glm::mat4(1.0f);
     paddleOneMatrix = glm::mat4(1.0f);
@@ -128,6 +139,8 @@ void detectPaddleCollision() { //During collisions with wall/paddle, we bring th
     float paddleOneYDistance = paddleOneYDiff - (paddleHeight + ballHeight);
 
     if (paddleOneXDistance < 0.0f && paddleOneYDistance < 0.0f) { //Ball is hitting left paddle
+        Mix_PlayChannel(-1, bounce, 0);
+
         if (paddleOneXDistance < -0.005f) {//Ball is hitting the side
             float diagonal = ((fabs(paddleOneXDistance) * fabs(paddleOneXDistance)) + (fabs(paddleOneYDistance) * fabs(paddleOneYDistance))); //Not doing sqrt looks more natural
             if (ball_position.y > paddle_one_position.y) { //if the ball did hit the side, which side did it hit
@@ -146,6 +159,9 @@ void detectPaddleCollision() { //During collisions with wall/paddle, we bring th
         }
     }
     else if (paddleTwoXDistance < 0.0f && paddleTwoYDistance < 0.0f) { //Ball is hitting right paddle
+
+        Mix_PlayChannel(-1, bounce, 0);
+
         if (paddleTwoXDistance < -0.005f) { //Ball is hitting the side
             float diagonal = ((fabs(paddleTwoXDistance) * fabs(paddleTwoXDistance)) + (fabs(paddleTwoYDistance) * fabs(paddleTwoYDistance)));
             if (ball_position.y > paddle_two_position.y) { //which side is getting hit

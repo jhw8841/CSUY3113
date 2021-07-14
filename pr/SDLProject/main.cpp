@@ -2,6 +2,7 @@
 
 #ifdef _WINDOWS
 #include <GL/glew.h>
+#include <vector>
 #endif
 
 #define GL_GLEXT_PROTOTYPES 1
@@ -13,11 +14,10 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
 #include "Entity.h"
 
 #define PLATFORM_COUNT 36
-#define ENEMY_COUNT 3
+#define ENEMY_COUNT 4
 
 struct GameState {
     Entity* player;
@@ -34,6 +34,11 @@ bool gameIsRunning = true;
 
 ShaderProgram program;
 glm::mat4 viewMatrix, modelMatrix, projectionMatrix;
+
+GLuint fontTextureID;
+GLuint playerTextures[2];
+GLuint swordTextures[2];
+int remainingEnemies = ENEMY_COUNT;
 
 GLuint LoadTexture(const char* filePath) {
     int w, h, n;
@@ -55,7 +60,6 @@ GLuint LoadTexture(const char* filePath) {
     stbi_image_free(image);
     return textureID;
 }
-
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
@@ -85,6 +89,7 @@ void Initialize() {
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    fontTextureID = LoadTexture("font1.png");
 
     // Initialize Game Objects
     state.player = new Entity();
@@ -93,30 +98,23 @@ void Initialize() {
     state.player->movement = glm::vec3(0);
     state.player->acceleration = glm::vec3(0, -9.81f, 0);
     state.player->speed = 2.0f;
-    state.player->textureID = LoadTexture("playerBlue_walk2.png");
     state.player->height = 0.48f;
-    state.player->width = 0.15f;
+    state.player->width = 0.25f;
     state.player->jumpPower = 5.75;
+    playerTextures[0] = LoadTexture("blueWalkLeft.png");
+    playerTextures[1] = LoadTexture("playerBlue_walk3.png");
+    state.player->textureID = playerTextures[0];
 
     state.sword = new Entity();
     state.sword->entityType = SWORD;
-    state.sword->textureID = LoadTexture("sword.png");
     state.sword->position = glm::vec3(state.player->position.x + 0.33, state.player->position.y, 0);
-    state.sword->height = 0.15f;
+    state.sword->height = 0.1f;
     state.sword->width = 0.25;
-
-    /*
-    state.player->animRight = new int[4]{ 3, 7, 11, 15 };
-    state.player->animLeft = new int[4]{ 1, 5, 9, 13 };
-    state.player->animUp = new int[4]{ 2, 6, 10, 14 };
-    state.player->animDown = new int[4]{ 0, 4, 8, 12 };
-    state.player->animIndices = state.player->animRight;
-    state.player->animFrames = 4;
-    state.player->animIndex = 0;
-    state.player->animTime = 0;
-    state.player->animCols = 4;
-    state.player->animRows = 4;
-    */
+    state.sword->animTime = 0.0f;
+    state.sword->isActive = false;
+    swordTextures[0] = LoadTexture("swordFlip.png");
+    swordTextures[1] = LoadTexture("sword.png");
+    state.sword->textureID = swordTextures[0];
 
     state.platforms = new Entity[PLATFORM_COUNT];
     GLuint platformTextureID = LoadTexture("tilesheet_complete.png");
@@ -184,7 +182,7 @@ void Initialize() {
 
     //Update platforms to initialized positions
     for (int i = 0; i < PLATFORM_COUNT; i++) {
-        state.platforms[i].Update(0, NULL, NULL, NULL, NULL, 0);
+        state.platforms[i].Update(0, NULL, NULL, NULL, NULL, NULL, 0);
     }
 
     state.enemies = new Entity[ENEMY_COUNT];
@@ -192,25 +190,35 @@ void Initialize() {
 
     for (int i = 0; i < ENEMY_COUNT; i++) {
         state.enemies[i].entityType = ENEMY;
+        state.enemies[i].height = 0.5f;
+        state.enemies[i].width = 0.5f;
     }
 
-    state.enemies[0].entityType = ENEMY;
     state.enemies[0].textureID = enemyTextureID;
     state.enemies[0].position = glm::vec3(4.25f, -3.0f, 0);
     state.enemies[0].movement = glm::vec3(-1, 0, 0);
-    state.enemies[0].speed = 1;
-    state.enemies[0].height = 0.5f;
-    state.enemies[0].width = 0.5f;
+    state.enemies[0].acceleration = glm::vec3(0, -9.81f, 0);
     state.enemies[0].aiType = WALKER;
+    state.enemies[0].speed = 1.0f;
 
-    state.enemies[1].entityType = ENEMY;
     state.enemies[1].textureID = enemyTextureID;
-    state.enemies[1].position = glm::vec3(-4.75f, 2.0f, 0);
-    state.enemies[1].speed = 1;
-    state.enemies[1].height = 0.5f;
-    state.enemies[1].width = 0.5f;
-    state.enemies[1].aiType = SLAMMER;
-    state.enemies[1].aiState = IDLE;
+    state.enemies[1].position = glm::vec3(3.25f, -3.0f, 0);
+    state.enemies[1].movement = glm::vec3(-1, 0, 0);
+    state.enemies[1].acceleration = glm::vec3(0, -9.81f, 0);
+    state.enemies[1].aiType = WALKER;
+    state.enemies[1].speed = 1.0f;
+
+    state.enemies[2].textureID = enemyTextureID;
+    state.enemies[2].position = glm::vec3(-4.75f, 2.0f, 0);
+    state.enemies[2].aiType = SLAMMER;
+    state.enemies[2].aiState = IDLE;
+    state.enemies[2].speed = 1.0f;
+
+    state.enemies[3].textureID = enemyTextureID;
+    state.enemies[3].position = glm::vec3(3.5f, 1.0f, 0);
+    state.enemies[3].aiType = CHASER;
+    state.enemies[3].aiState = IDLE;
+    state.enemies[3].speed = 0.5f;
 }
 
 void ProcessInput() {
@@ -227,11 +235,41 @@ void ProcessInput() {
 
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
+            case SDLK_x:
+                if (state.sword->isActive == false && gameStatus == 1) {
+                    state.sword->isActive = true;
+                    if (state.player->direction == LEFT) {
+                        state.sword->textureID = swordTextures[0];
+                    }
+                    else if (state.player->direction == RIGHT) {
+                        state.sword->textureID = swordTextures[1];
+                    }
+                }
+                break;
             case SDLK_SPACE:
                 if (state.player->collidedBottom == true) {
                     state.player->jump = true;
                 }
                 break;
+            case SDLK_r:
+                gameStatus = 1;
+                state.player->position = glm::vec3(-4, -2, 0);
+                state.player->velocity = glm::vec3(0);
+                state.sword->isActive = false;
+
+                remainingEnemies = ENEMY_COUNT;
+                for (int i = 0; i < ENEMY_COUNT; i++) {
+                    state.enemies[i].isActive = true;
+                }
+                state.enemies[0].position = glm::vec3(4.25f, -3.0f, 0);
+                state.enemies[1].position = glm::vec3(3.25f, -3.0f, 0);
+                state.enemies[2].position = glm::vec3(-4.75f, 2.0f, 0);
+                state.enemies[2].movement = glm::vec3(0);
+                state.enemies[2].aiState = IDLE;
+                state.enemies[3].position = glm::vec3(3.5f, 1.0f, 0);
+                state.enemies[3].movement = glm::vec3(0);
+                state.enemies[3].velocity = glm::vec3(0);
+                state.enemies[3].aiState = IDLE;
             }
             break; // SDL_KEYDOWN
         }
@@ -241,11 +279,17 @@ void ProcessInput() {
         const Uint8* keys = SDL_GetKeyboardState(NULL);
         if (keys[SDL_SCANCODE_LEFT]) {
             state.player->movement.x = -1.0f;
-            state.player->direction = LEFT;
+            if (state.sword->isActive == false) {
+                state.player->direction = LEFT;
+                state.player->textureID = playerTextures[0];
+            }
         }
         else if (keys[SDL_SCANCODE_RIGHT]) {
             state.player->movement.x = 1.0f;
-            state.player->direction = RIGHT;
+            if (state.sword->isActive == false) {
+                state.player->direction = RIGHT;
+                state.player->textureID = playerTextures[1];
+            }
         }
 
         if (glm::length(state.player->movement) > 1.0f) {
@@ -272,20 +316,73 @@ void Update() {
         }
 
         while (deltaTime >= FIXED_TIMESTEP) {
-            state.player->Update(FIXED_TIMESTEP, &gameStatus, state.player, state.sword, state.platforms, PLATFORM_COUNT);
-            state.sword->Update(FIXED_TIMESTEP, &gameStatus, state.player, state.sword, state.platforms, PLATFORM_COUNT);
+            state.player->Update(FIXED_TIMESTEP, &gameStatus, &remainingEnemies, state.player, state.sword, state.platforms, PLATFORM_COUNT);
+            state.sword->Update(FIXED_TIMESTEP, &gameStatus, &remainingEnemies, state.player, state.sword, state.platforms, PLATFORM_COUNT);
 
-            for (int i = 0; i < ENEMY_COUNT - 1; i++) {
-                if (state.enemies[i].isActive == true) {
-                    state.enemies[i].Update(FIXED_TIMESTEP, &gameStatus, state.player, state.sword, state.platforms, PLATFORM_COUNT);
-                }
+            for (int i = 0; i < ENEMY_COUNT; i++) {
+                state.enemies[i].Update(FIXED_TIMESTEP, &gameStatus, &remainingEnemies, state.player, state.sword, state.platforms, PLATFORM_COUNT);
             }
 
             deltaTime -= FIXED_TIMESTEP;
         }
     }
-
     accumulator = deltaTime;
+    if (remainingEnemies <= 0) {
+        gameStatus = 2;
+    }
+}
+
+void DrawText(ShaderProgram* program, GLuint fontTextureID, std::string text, float size, float spacing, glm::vec3 position) {
+    float width = 1.0f / 16.0f;
+    float height = 1.0f / 16.0f;
+
+    std::vector<float> vertices;
+    std::vector<float> texCoords;
+
+    for (int i = 0; i < text.size(); i++) {
+
+        int index = (int)text[i];
+        float offset = (size + spacing) * i;
+
+        float u = (float)(index % 16) / 16.0f;
+        float v = (float)(index / 16) / 16.0f;
+
+        vertices.insert(vertices.end(), {
+            offset + (-0.5f * size), 0.5f * size,
+            offset + (-0.5f * size), -0.5f * size,
+            offset + (0.5f * size), 0.5f * size,
+            offset + (0.5f * size), -0.5f * size,
+            offset + (0.5f * size), 0.5f * size,
+            offset + (-0.5f * size), -0.5f * size,
+            });
+
+        texCoords.insert(texCoords.end(), {
+            u, v,
+            u, v + height,
+            u + width, v,
+            u + width, v + height,
+            u + width, v,
+            u, v + height,
+            });
+    } // end of for loop
+
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
+    modelMatrix = glm::translate(modelMatrix, position);
+    program->SetModelMatrix(modelMatrix);
+
+    glUseProgram(program->programID);
+
+    glVertexAttribPointer(program->positionAttribute, 2, GL_FLOAT, false, 0, vertices.data());
+    glEnableVertexAttribArray(program->positionAttribute);
+
+    glVertexAttribPointer(program->texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords.data());
+    glEnableVertexAttribArray(program->texCoordAttribute);
+
+    glBindTexture(GL_TEXTURE_2D, fontTextureID);
+    glDrawArrays(GL_TRIANGLES, 0, (int)(text.size() * 6));
+
+    glDisableVertexAttribArray(program->positionAttribute);
+    glDisableVertexAttribArray(program->texCoordAttribute);
 }
 
 void Render() {
@@ -294,14 +391,19 @@ void Render() {
     for (int i = 0; i < PLATFORM_COUNT; i++) {
         state.platforms[i].Render(&program);
     }
-    for (int i = 0; i < ENEMY_COUNT - 1; i++) {
-        if (state.enemies[i].isActive == true) {
-            state.enemies[i].Render(&program);
-        }
+    for (int i = 0; i < ENEMY_COUNT; i++) {
+        state.enemies[i].Render(&program);
     }
 
     state.player->Render(&program);
     state.sword->Render(&program);
+
+    if (gameStatus == 2) {
+        DrawText(&program, fontTextureID, "Victory!", 1.0f, -0.5f, glm::vec3(-1.65f, 1.0f, 0));
+    }
+    else if (gameStatus == 0) {
+        DrawText(&program, fontTextureID, "Defeat!", 1.0f, -0.5f, glm::vec3(-1.4f, 1.0f, 0));
+    }
 
     SDL_GL_SwapWindow(displayWindow);
 }

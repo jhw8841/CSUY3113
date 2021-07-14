@@ -14,7 +14,7 @@
 enum EntityType {PLAYER, PLATFORM, ENEMY, SWORD};
 enum Direction {NONE, LEFT, RIGHT};
 
-enum AIType {WALKER, SLAMMER};
+enum AIType {WALKER, SLAMMER, CHASER};
 enum AIState {IDLE, WALKING, ATTACKING};
 
 class Entity {
@@ -65,14 +65,16 @@ public:
     Entity();
 
     bool CheckCollision(Entity* other);
+    bool CheckSensorCollision(glm::vec3 sensor, Entity* object, int objectCount);
     void CheckCollisionsY(Entity* objects, int objectCount);
     void CheckCollisionsX(Entity* objects, int objectCount);
 
-    void Update(float deltaTime, int* gameStatus, Entity* player, Entity* sword, Entity* platforms, int platformCount);
+    void Update(float deltaTime, int* gameStatus, int* remainingEnemies, Entity* player, Entity* sword, Entity* platforms, int platformCount);
     void Render(ShaderProgram* program);
     void DrawSpriteFromTextureAtlas(ShaderProgram* program, GLuint textureID, int index);
 
-    void AI(int* gameStatus, Entity* player, Entity* sword);
-    void AIWalker();
+    void AI(int* gameStatus, int* remainingEnemies, Entity* player, Entity* sword, Entity* platforms, int platformCount);
+    void AIWalker(Entity* platforms, int platformCount);
     void AISlammer(Entity* player);
+    void AIChaser(Entity* player);
 };

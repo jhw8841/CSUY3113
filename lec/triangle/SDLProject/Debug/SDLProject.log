@@ -1,2 +1,4 @@
-﻿  main.cpp
+﻿  entity.cpp
+C:\CSUY3113\lec\triangle\SDLProject\entity.cpp(18,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\CSUY3113\lec\triangle\SDLProject\entity.cpp(19,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
   SDLProject.vcxproj -> C:\CSUY3113\lec\triangle\SDLProject\Debug\SDLProject.exe
