@@ -1,0 +1,26 @@
+Controls:
+Left arrow key to move left
+Right arrow key to move right
+Spacebar to jump
+Press X to attack
+Press R to restart the game
+
+Instructions:
+There are 4 enemies. In order to win, you must defeat all 4 enemies by attacking them with the sword
+The two enemies on the ground platform and middle platform near the ground are basic walkers
+which walk back and forth on their platforms.
+
+The other two enemies stay idle at the beginning of the game. However, once the player
+gets too close, they'll do different things. The flying enemy on the right will chase
+the player indefinitely until death or restart. The enemy on the top left platform will
+slam towards the player in a straight line.
+
+If the player defeats all enemies, a victory text will appear and the game pauses.
+If the player touches an enemy directly, a defeat text will appear and the game pauses.
+You can restart the game by pressing R.
+
+Issues:
+There is a frame drawing issue with the sword and also applies when restarting the game, but mostly the sword.
+Whenever the player attacks, the sword will, for a very brief frame time, appear at the previous location
+the sword was drawn. This also happens with the enemy and the player on restarting the game.
+For a very brief frame time, on resetting, the enemies and player will appear at the previous position they were at before reset/death.
